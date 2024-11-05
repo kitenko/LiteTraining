@@ -1,0 +1,30 @@
+repos:
+  - repo: local
+    hooks:
+      - id: black
+        name: black
+        entry: black
+        language: system
+        types: [python]
+
+      - id: pylint
+        name: pylint
+        entry: pylint
+        language: system
+        types: [python]
+        exclude: agent_utils.py
+        args: ["--rcfile=.pylintrc"]
+
+      - id: mypy
+        name: mypy
+        entry: mypy
+        language: system
+        types: [python]
+        exclude: agent_utils.py
+
+      - id: pytest
+        name: Run pytest
+        entry: pytest
+        language: python
+        types: [python]
+        pass_filenames: false  # Don't pass file names to pytest, we want to run all tests
