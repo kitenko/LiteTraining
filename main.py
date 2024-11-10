@@ -9,8 +9,8 @@ import faulthandler
 from typing import Optional
 
 from models.image_classification_module import ImageClassificationModule
-from toolkit.custom_cli import ImageClassificationCLI
-from toolkit.model_utils import load_checkpoint
+from toolkit.custom_cli import CustomLightningCLI
+from toolkit.agent_utils import load_checkpoint
 from dataset_modules.image_data_module import ImageDataModule
 
 # Enable fault handler to track segmentation faults
@@ -27,12 +27,12 @@ def run() -> None:
     """
     try:
         # Instantiate the custom CLI for image classification
-        cli = ImageClassificationCLI(
-            ImageClassificationModule, ImageDataModule, save_config_callback=None, run=False
+        cli = CustomLightningCLI(
+            ImageClassificationModule,
+            ImageDataModule,
+            save_config_callback=None,
+            run=False,
         )
-
-        # Execute the custom logic before starting the training process
-        cli.before_training()
 
         # Handle different processes like tuning, testing, validation, or training
         handle_cli_process(cli)
@@ -42,18 +42,18 @@ def run() -> None:
         logger.exception("An error occurred during training or setup")
 
 
-def handle_cli_process(cli: ImageClassificationCLI) -> None:
+def handle_cli_process(cli: CustomLightningCLI) -> None:
     """
     Handle different CLI processes such as tuning, testing, validation, or training
     based on the provided CLI configuration.
 
     Args:
-        cli (ImageClassificationCLI): The custom CLI instance used to run the processes.
+        cli (CustomLightningCLI): The custom CLI instance used to run the processes.
     """
     ckpt_path: Optional[str] = cli.config.get("ckpt_path", None)
 
-    if cli.config.get("tuning", {}).get("run", False):
-        run_tuning(cli)
+    if cli.config.get("optuna", {}).get("tune", False):
+        run_optuna(cli)
     elif cli.config.get("test", False):
         run_test(cli, ckpt_path)
     elif cli.config.get("validate", False):
@@ -62,17 +62,17 @@ def handle_cli_process(cli: ImageClassificationCLI) -> None:
         run_training(cli, ckpt_path)
 
 
-def run_tuning(cli: ImageClassificationCLI) -> None:
+def run_optuna(cli: CustomLightningCLI) -> None:
     """
-    Run hyperparameter tuning process.
+    Run Optuna hyperparameter tuning process.
 
     Args:
-        cli (ImageClassificationCLI): The custom CLI instance with tuning configuration.
+        cli (MyLightningCLI): The custom Lightning CLI instance with Optuna configuration.
     """
-    cli.run_tuning()
+    cli.run_optuna()
 
 
-def run_test(cli: ImageClassificationCLI, ckpt_path: Optional[str]) -> None:
+def run_test(cli: CustomLightningCLI, ckpt_path: Optional[str]) -> None:
     """
     Run testing process with the specified model and datamodule, using an optional checkpoint.
 
@@ -83,7 +83,7 @@ def run_test(cli: ImageClassificationCLI, ckpt_path: Optional[str]) -> None:
     cli.trainer.test(cli.model, cli.datamodule, ckpt_path=ckpt_path)
 
 
-def run_validation(cli: ImageClassificationCLI, ckpt_path: Optional[str]) -> None:
+def run_validation(cli: CustomLightningCLI, ckpt_path: Optional[str]) -> None:
     """
     Run validation process with the specified model and datamodule, using an optional checkpoint.
 
@@ -94,7 +94,7 @@ def run_validation(cli: ImageClassificationCLI, ckpt_path: Optional[str]) -> Non
     cli.trainer.validate(cli.model, cli.datamodule, ckpt_path=ckpt_path)
 
 
-def run_training(cli: ImageClassificationCLI, ckpt_path: Optional[str]) -> None:
+def run_training(cli: CustomLightningCLI, ckpt_path: Optional[str]) -> None:
     """
     Run the training process, with an option to load only the model's weights without the optimizer state.
 

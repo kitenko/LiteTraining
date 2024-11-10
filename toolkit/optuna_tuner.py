@@ -19,13 +19,11 @@ from optuna import Study, Trial
 from optuna.trial import FrozenTrial
 from pytorch_lightning.trainer import Trainer
 
-from models.base_module import BaseModule
-from dataset_modules.phoneme_dataset import PhonemeDataModule
-from toolkit.constant import PathConstants
+from models.image_classification_module import ImageClassificationModule
+from dataset_modules.image_data_module import ImageDataModule
 from toolkit.agent_utils import instantiate_classes_from_config, instantiate_from_config
 
 logger = logging.getLogger(__name__)
-
 
 
 @dataclass
@@ -59,8 +57,8 @@ class OptunaTuner:
     def __init__(
         self,
         config: Namespace,
-        model_class: Type[BaseModule],
-        datamodule_class: Type[PhonemeDataModule],
+        model_class: Type[ImageClassificationModule],
+        datamodule_class: Type[ImageDataModule],
         trainer_class: Type[Trainer],
     ) -> None:
         """
@@ -89,7 +87,9 @@ class OptunaTuner:
         try:
             # Optimization process with trial result saving after each trial
             study.optimize(
-                lambda trial: self.objective(trial, metric), n_trials=n_trials, callbacks=[self.save_trial_results]
+                lambda trial: self.objective(trial, metric),
+                n_trials=n_trials,
+                callbacks=[self.save_trial_results],
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error(f"Optimization failed: {e}")
@@ -123,7 +123,7 @@ class OptunaTuner:
 
         # Instantiate augmentations if specified in the config
         augmentations = None
-        if hasattr(config.data, 'augmentations'):
+        if hasattr(config.data, "augmentations"):
             augmentations = instantiate_classes_from_config(config.data.augmentations)
 
         datasets = instantiate_classes_from_config(config.data.dataset_classes)
@@ -143,12 +143,14 @@ class OptunaTuner:
         # Get the value of the optimization metric
         val_result = trainer.callback_metrics.get(metric)
         if val_result is None:
-            raise ValueError(f"Metric '{metric}' not found in callback metrics. Hparams: {hparams}")
+            raise ValueError(
+                f"Metric '{metric}' not found in callback metrics. Hparams: {hparams}"
+            )
 
         logger.info(f"Optuna val_result: {val_result.item()}, hparams: {hparams}")
         return val_result.item()
 
-    def create_model(self, config: Namespace) -> BaseModule:
+    def create_model(self, config: Namespace) -> ImageClassificationModule:
         """
         Creates and returns the model using the given configuration.
 
@@ -160,7 +162,9 @@ class OptunaTuner:
         """
         return self.model_class(**vars(config.model))
 
-    def create_datamodule(self, config: Namespace, augmentations: Any, datasets: Any) -> PhonemeDataModule:
+    def create_datamodule(
+        self, config: Namespace, augmentations: Any, datasets: Any
+    ) -> ImageDataModule:
         """
         Creates and returns the DataModule using the given configuration, augmentations, and datasets.
 
@@ -173,8 +177,8 @@ class OptunaTuner:
             PhonemeDataModule: The DataModule instance.
         """
         datamodule_kwargs = vars(config.data)
-        datamodule_kwargs['augmentations'] = augmentations
-        datamodule_kwargs['dataset_classes'] = datasets
+        datamodule_kwargs["augmentations"] = augmentations
+        datamodule_kwargs["dataset_classes"] = datasets
         return self.datamodule_class(**datamodule_kwargs)
 
     def create_trainer(self, trainer_kwargs: Dict[str, Any]) -> Trainer:
@@ -198,19 +202,19 @@ class OptunaTuner:
             trainer_kwargs (dict): The arguments for the Trainer class.
         """
         # Instantiate callbacks
-        if 'callbacks' in trainer_kwargs:
-            callbacks_config = trainer_kwargs.pop('callbacks')
+        if "callbacks" in trainer_kwargs:
+            callbacks_config = trainer_kwargs.pop("callbacks")
             callbacks = []
             for callback_conf in callbacks_config:
                 callback = instantiate_from_config(callback_conf)
                 callbacks.append(callback)
-            trainer_kwargs['callbacks'] = callbacks
+            trainer_kwargs["callbacks"] = callbacks
 
         # Instantiate logger
-        if 'logger' in trainer_kwargs:
-            logger_config = trainer_kwargs.pop('logger')
+        if "logger" in trainer_kwargs:
+            logger_config = trainer_kwargs.pop("logger")
             logger_pl = instantiate_from_config(logger_config)
-            trainer_kwargs['logger'] = logger_pl
+            trainer_kwargs["logger"] = logger_pl
 
     def get_hparams_from_trial(self, trial: Trial) -> Dict[str, Any]:
         """
@@ -225,22 +229,26 @@ class OptunaTuner:
         hparams = {}
         search_spaces = self.config.optuna.search_spaces
         for param_path, param_config in search_spaces.items():
-            distribution = param_config['distribution']
-            param_name = param_path.replace('.', '__').replace('[', '_').replace(']', '')
-            if distribution == 'uniform':
-                low = param_config['low']
-                high = param_config['high']
+            distribution = param_config["distribution"]
+            param_name = (
+                param_path.replace(".", "__").replace("[", "_").replace("]", "")
+            )
+            if distribution == "uniform":
+                low = param_config["low"]
+                high = param_config["high"]
                 hparam_value = trial.suggest_float(param_name, low, high)
-            elif distribution == 'loguniform':
-                low = param_config['low']
-                high = param_config['high']
+            elif distribution == "loguniform":
+                low = param_config["low"]
+                high = param_config["high"]
                 hparam_value = trial.suggest_float(param_name, low, high, log=True)
-            elif distribution == 'int':
-                low = int(param_config['low'])
-                high = int(param_config['high'])
+            elif distribution == "int":
+                low = int(param_config["low"])
+                high = int(param_config["high"])
                 hparam_value = trial.suggest_int(param_name, low, high)
             else:
-                raise ValueError(f"Unknown distribution {distribution} for parameter {param_name}")
+                raise ValueError(
+                    f"Unknown distribution {distribution} for parameter {param_name}"
+                )
             hparams[param_path] = hparam_value
         return hparams
 
@@ -253,7 +261,9 @@ class OptunaTuner:
             study (optuna.study.Study): The current Optuna study.
             trial (optuna.trial.FrozenTrial): The current trial.
         """
-        logs_dir = os.path.join(self.config.trainer.default_root_dir, PathConstants.LOGS_DIR.value)
+        logs_dir = os.path.join(
+            self.config.trainer.default_root_dir, PathConstants.LOGS_DIR.value
+        )
         filepath = os.path.join(logs_dir, "optuna_results.yaml")
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
@@ -264,12 +274,12 @@ class OptunaTuner:
             results = {}
 
         trial_results = {
-            'number': trial.number,
-            'value': trial.value,
-            'params': trial.params,
-            'state': str(trial.state),
+            "number": trial.number,
+            "value": trial.value,
+            "params": trial.params,
+            "state": str(trial.state),
         }
-        results[f'trial_{trial.number}'] = trial_results
+        results[f"trial_{trial.number}"] = trial_results
 
         with open(filepath, "w", encoding="utf-8") as file:
             yaml.dump(results, file, default_flow_style=False)
@@ -284,23 +294,32 @@ class OptunaTuner:
             study (optuna.study.Study): The Optuna study instance.
         """
         results = {
-            'best_trial_value': study.best_trial.value,
-            'best_trial_params': study.best_trial.params,
-            'trials': [
-                {'number': trial.number, 'value': trial.value, 'params': trial.params, 'state': str(trial.state)}
+            "best_trial_value": study.best_trial.value,
+            "best_trial_params": study.best_trial.params,
+            "trials": [
+                {
+                    "number": trial.number,
+                    "value": trial.value,
+                    "params": trial.params,
+                    "state": str(trial.state),
+                }
                 for trial in study.trials
             ],
         }
 
-        logs_dir = os.path.join(self.config.trainer.default_root_dir, PathConstants.LOGS_DIR.value)
+        logs_dir = os.path.join(
+            self.config.trainer.default_root_dir, PathConstants.LOGS_DIR.value
+        )
         filepath = os.path.join(logs_dir, "optuna_final_results.yaml")
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        with open(filepath, "w", encoding='utf-8') as file:
+        with open(filepath, "w", encoding="utf-8") as file:
             yaml.dump(results, file, default_flow_style=False)
 
         logger.info(f"Final Optuna results saved to: {filepath}")
 
-    def update_config_with_hparams(self, config: Namespace, hparams: Dict[str, Any]) -> None:
+    def update_config_with_hparams(
+        self, config: Namespace, hparams: Dict[str, Any]
+    ) -> None:
         """
         Updates the configuration object with the sampled hyperparameters from the trial.
 
@@ -313,14 +332,14 @@ class OptunaTuner:
             hparams (Dict[str, Any]): The dictionary of sampled hyperparameters.
         """
         for param_path, value in hparams.items():
-            keys = param_path.split('.')
+            keys = param_path.split(".")
             current = config
 
             # Navigate through the nested keys to reach the final attribute
             for key in keys[:-1]:
                 # Check if the key contains a list index (e.g., `layers[0]`)
-                if '[' in key and ']' in key:
-                    attr_name, idx = key[:-1].split('[')
+                if "[" in key and "]" in key:
+                    attr_name, idx = key[:-1].split("[")
                     idx = int(idx)  # type: ignore
                     # Get the list from the current attribute and select the indexed item
                     current = getattr(current, attr_name)
@@ -331,9 +350,9 @@ class OptunaTuner:
 
             # Set the value for the final attribute
             last_key = keys[-1]
-            if '[' in last_key and ']' in last_key:
+            if "[" in last_key and "]" in last_key:
                 # Handle the case where the final key is a list (e.g., `layers[0]`)
-                attr_name, idx = last_key[:-1].split('[')
+                attr_name, idx = last_key[:-1].split("[")
                 idx = int(idx)  # type: ignore
                 obj = getattr(current, attr_name)
                 obj[idx] = value

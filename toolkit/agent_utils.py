@@ -6,52 +6,64 @@ import torch
 from torch.nn import Module
 
 
-def create_instance_from_config(config: Namespace):
+def instantiate_from_config(config: Namespace):
     """
-    Creates an instance of a class based on a provided configuration.
+    Instantiates an object from a configuration that specifies the class path and initialization arguments.
 
     Args:
-        config (Namespace): Configuration containing 'class_path' and 'init_args'.
+        config (Namespace): Configuration containing 'class_path' (str) with the full import path of the class
+                            and 'init_args' (dict) with any required initialization arguments for the class.
 
     Returns:
-        instance: An instance of the specified class with provided initialization arguments.
+        instance: An instantiated object of the class defined in the config.
+
+    Raises:
+        ImportError: If the module or class cannot be found.
     """
     class_path = config["class_path"]
     init_args = config.get("init_args", {})
     module_path, class_name = class_path.rsplit(".", 1)
     module = importlib.import_module(module_path)
     cls = getattr(module, class_name)
-    return cls(**init_args)
+    instance = cls(**init_args)
+    return instance
 
 
-def create_instances_from_configs(configs: List[Namespace]):
+def instantiate_classes_from_config(configs: List[Namespace]):
     """
-    Creates a list of instances from a list of configurations.
+    Instantiates a list of objects based on the provided list of configurations.
 
     Args:
-        configs (List[Namespace]): List of configurations for creating instances.
+        configs (List[Namespace]): List of configuration objects for each class to instantiate.
+                                   Each configuration should contain 'class_path' and 'init_args'.
 
     Returns:
         List: A list of instantiated objects.
     """
     instances = []
-    for conf in configs:
-        instance = create_instance_from_config(conf)
+    for config in configs:
+        instance = instantiate_from_config(config)
         instances.append(instance)
     return instances
 
 
-def load_model_weights(ckpt_path: Optional[str], model: Module) -> None:
+def load_checkpoint(ckpt_path: Optional[str], model: Module) -> None:
     """
-    Loads the model weights from a checkpoint file, excluding optimizer state.
+    Loads model weights from a checkpoint file into the model instance, omitting any optimizer state.
 
     Args:
-        ckpt_path (Optional[str]): Path to the checkpoint file.
-        model (torch.nn.Module): The model instance to load weights into.
+        ckpt_path (Optional[str]): Path to the checkpoint file. If None, no weights are loaded.
+        model (torch.nn.Module): The model instance into which weights will be loaded.
 
     Returns:
-        None: The model weights are updated in place.
+        None: The function updates the model weights in place.
+
+    Raises:
+        FileNotFoundError: If the checkpoint path is specified but the file does not exist.
+        RuntimeError: If there is an issue with loading the weights into the model (e.g., size mismatch).
     """
     if ckpt_path:
         checkpoint = torch.load(ckpt_path, map_location=torch.device("cpu"))
-        model.load_state_dict(checkpoint.get("state_dict", checkpoint))  # Load model weights only
+        model.load_state_dict(
+            checkpoint.get("state_dict", checkpoint)
+        )  # Load model weights only

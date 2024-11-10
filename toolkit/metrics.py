@@ -1,12 +1,12 @@
 """
-This module defines the MetricsModule class for managing and calculating
+This module defines the `MetricsModule` class for managing and calculating
 performance metrics during model training and evaluation, with a focus on
-standard classification metrics like Accuracy, Precision, Recall, and F1 Score.
+classification metrics like Accuracy, Precision, Recall, and F1 Score.
 """
 
-from typing import Dict, List, Optional
+from typing import Dict
 import torch
-from torchmetrics import Metric, Accuracy, Precision, Recall, F1
+from torchmetrics import Metric
 from pytorch_lightning import LightningModule
 
 
@@ -16,70 +16,44 @@ class MetricsModule:
 
     This class provides an interface for managing standard classification metrics such as
     Accuracy, Precision, Recall, and F1 Score. It handles updating and logging these
-    metrics at the end of each epoch.
+    metrics for each epoch, allowing easy integration with PyTorch Lightning.
     """
 
-    def __init__(self, device: torch.device, metric_names: Optional[List[str]] = None) -> None:
+    def __init__(self, device: torch.device, metrics: Dict[str, Metric]) -> None:
         """
-        Initialize MetricsModule with a set of metrics.
+        Initializes the MetricsModule with a set of metrics and assigns them to a specified device.
 
         Args:
-            device (torch.device): Device to run the metrics on (e.g., 'cpu' or 'cuda').
-            metric_names (List[str], optional): List of metric names to use (default includes "accuracy").
+            device (torch.device): Device on which to run the metrics calculations (e.g., 'cpu' or 'cuda').
+            metrics (Dict[str, Metric]): A dictionary of metric name keys and corresponding TorchMetrics `Metric` instances.
         """
         self.device = device
-        self.dict_metrics: Dict[str, Metric] = self._initialize_metrics(metric_names or ["accuracy"])
-
-    def _initialize_metrics(self, metric_names: List[str]) -> Dict[str, Metric]:
-        """
-        Initializes the selected metrics based on the names provided.
-
-        Args:
-            metric_names (List[str]): List of metric names to initialize.
-
-        Returns:
-            Dict[str, Metric]: A dictionary with metric names as keys and metric objects as values.
-        """
-        metric_dict: Dict[str, Metric] = {}
-
-        if "accuracy" in metric_names:
-            metric_dict["accuracy"] = Accuracy().to(self.device)
-
-        if "precision" in metric_names:
-            metric_dict["precision"] = Precision(average='macro').to(self.device)
-
-        if "recall" in metric_names:
-            metric_dict["recall"] = Recall(average='macro').to(self.device)
-
-        if "f1" in metric_names:
-            metric_dict["f1"] = F1(average='macro').to(self.device)
-
-        return metric_dict
+        self.metrics = {name: metric.to(device) for name, metric in metrics.items()}
 
     def update_metrics(self, preds: torch.Tensor, targets: torch.Tensor) -> None:
         """
-        Update the metrics for the current batch.
+        Updates each metric with the predictions and targets for the current batch.
 
         Args:
-            preds (torch.Tensor): Predictions from the model.
-            targets (torch.Tensor): Ground truth labels.
+            preds (torch.Tensor): Model predictions for the current batch.
+            targets (torch.Tensor): Ground truth labels for the current batch.
         """
-        for metric in self.dict_metrics.values():
+        for metric in self.metrics.values():
             metric.update(preds, targets)
 
     def log_metrics(self, stage: str, pl_module: LightningModule) -> None:
         """
-        Compute, log, and reset the metrics at the end of an epoch.
+        Computes, logs, and resets the metrics at the end of an epoch.
 
         Args:
-            stage (str): The current phase, e.g., "train" or "val".
-            pl_module (LightningModule): The Lightning module instance to log metrics.
+            stage (str): The current phase (e.g., "train" or "val"), used to prefix metric names in logs.
+            pl_module (LightningModule): The Lightning module instance to use for logging metrics.
         """
-        for name, metric in self.dict_metrics.items():
-            # Compute the metric for all batches
+        for name, metric in self.metrics.items():
+            # Compute the metric for all batches within the epoch
             value: torch.Tensor = metric.compute()
 
-            # Log the metric (both to the logger and optionally the progress bar)
+            # Log the metric with appropriate stage prefix (e.g., "train_accuracy")
             pl_module.log(
                 f"{stage}_{name}",
                 value,

@@ -1,13 +1,12 @@
 version: '3.8'
 
 services:
-  train_phoneme:
+  lightnin_classifier:
     build: .
     container_name: LightningClassifier
-    shm_size: '1gb'
+    shm_size: '4gb'
     volumes:
       - .:/app
-    command: bash -c "chmod +x /app/scripts/install_dependencies.sh && /app/scripts/install_dependencies.sh && bash"
     tty: true
     deploy:
       resources:
