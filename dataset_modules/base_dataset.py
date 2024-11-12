@@ -22,6 +22,7 @@ class DatasetSplit(Enum):
     VALIDATION = "validation"
     TEST = "test"
     FULL = "full"
+    PREDICT = "predict"
 
 
 class ImageDatasetBase(ABC):

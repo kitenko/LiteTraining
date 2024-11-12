@@ -68,6 +68,13 @@ class CustomLightningCLI(LightningCLI):
             action="store_true",
             help="If specified, runs the validation phase without training the model.",
         )
+
+        parser.add_argument(
+            "--predict",
+            action="store_true",
+            help="If specified, runs the precit phase without training the model.",
+        )
+
         parser.add_argument(
             "--ckpt_path",
             type=str,

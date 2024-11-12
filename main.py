@@ -6,11 +6,12 @@ It sets up a fault handler and starts the CLI for configuring and running image 
 
 import logging
 import faulthandler
-from typing import Optional
+from typing import Optional, Callable
 
 from models.image_classification_module import ImageClassificationModule
 from toolkit.custom_cli import CustomLightningCLI
 from toolkit.agent_utils import load_checkpoint
+from toolkit.predict_functions import run_predict_to_csv
 from dataset_modules.image_data_module import ImageDataModule
 
 # Enable fault handler to track segmentation faults
@@ -23,7 +24,7 @@ logger = logging.getLogger(__name__)
 def run() -> None:
     """
     Main entry point for running the CLI with the specified model and dataset.
-    It handles tuning, testing, validation, or training processes based on the provided configuration in the CLI.
+    It handles tuning, testing, validation, training, or prediction processes based on the provided configuration in the CLI.
     """
     try:
         # Instantiate the custom CLI for image classification
@@ -34,7 +35,7 @@ def run() -> None:
             run=False,
         )
 
-        # Handle different processes like tuning, testing, validation, or training
+        # Handle different processes like tuning, testing, validation, training, or prediction
         handle_cli_process(cli)
 
     except Exception:
@@ -44,7 +45,7 @@ def run() -> None:
 
 def handle_cli_process(cli: CustomLightningCLI) -> None:
     """
-    Handle different CLI processes such as tuning, testing, validation, or training
+    Handle different CLI processes such as tuning, testing, validation, training, or prediction
     based on the provided CLI configuration.
 
     Args:
@@ -54,12 +55,39 @@ def handle_cli_process(cli: CustomLightningCLI) -> None:
 
     if cli.config.get("optuna", {}).get("tune", False):
         run_optuna(cli)
+    elif cli.config.get("predict", False):  # Check if we should run predictions
+        run_predict(cli, ckpt_path)
     elif cli.config.get("test", False):
         run_test(cli, ckpt_path)
     elif cli.config.get("validate", False):
         run_validation(cli, ckpt_path)
     else:
         run_training(cli, ckpt_path)
+
+
+def run_predict(
+    cli: CustomLightningCLI,
+    ckpt_path: Optional[str],
+    predict_fn: Callable = run_predict_to_csv,
+) -> None:
+    """
+    Run prediction process with a custom prediction function.
+
+    Args:
+        cli (CustomLightningCLI): The custom CLI instance with model and datamodule.
+        ckpt_path (Optional[str]): Path to the checkpoint file to load for prediction, if available.
+        predict_fn (Callable): Custom function to process predictions and save them.
+    """
+    # Run predictions using PyTorch Lightning's predict method
+    predictions = cli.trainer.predict(
+        cli.model, datamodule=cli.datamodule, ckpt_path=ckpt_path
+    )
+
+    # Get class labels and submission template path from the dataset
+    class_labels = cli.datamodule.dataset_classes[0].class_labels
+
+    # Call the custom prediction function
+    predict_fn(predictions, class_labels)
 
 
 def run_optuna(cli: CustomLightningCLI) -> None:

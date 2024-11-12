@@ -1,10 +1,10 @@
 import os
 import logging
-from typing import List, Optional
+from typing import List, Optional, Callable
 from datasets import concatenate_datasets, Dataset
 from torch.utils.data import DataLoader
 from pytorch_lightning import LightningDataModule
-from dataset_modules.utils import coll_fn
+from dataset_modules.utils import coll_fn, coll_fn_predict
 from dataset_modules.base_dataset import ImageDatasetBase, DatasetSplit
 from dataset_modules.augmentations import TransformDataset
 from albumentations.core.transforms_interface import BasicTransform
@@ -51,6 +51,7 @@ class ImageDataModule(LightningDataModule):
         self.train_dataset: Optional[Dataset] = None
         self.val_dataset: Optional[Dataset] = None
         self.test_dataset: Optional[Dataset] = None
+        self.predict_dataset: Optional[Dataset] = None  # For inference data
         self.normalization_image = TransformDataset(normalizations)
         self.augmentations = TransformDataset(augmentations)
         self.create_dataset = create_dataset
@@ -63,10 +64,10 @@ class ImageDataModule(LightningDataModule):
 
     def setup(self, stage: Optional[str] = None) -> None:
         """
-        Initializes datasets for the specified stage (fit, validate, or test) and splits data as necessary.
+        Initializes datasets for the specified stage (fit, validate, test, or predict) and splits data as necessary.
 
         Args:
-            stage (Optional[str]): Current stage, such as 'fit', 'validate', or 'test'.
+            stage (Optional[str]): Current stage, such as 'fit', 'validate', 'test', or 'predict'.
         """
         logger.info("Setting up datasets for stage: %s", stage)
         for class_dataset in self.dataset_classes:
@@ -84,10 +85,25 @@ class ImageDataModule(LightningDataModule):
 
         if stage in {"fit", "validate", "test"}:
             self._process_stage_data(stage)
+        elif stage == "predict":
+            self._setup_predict_data()  # Setup prediction data
         else:
             raise ValueError(
-                f"Unrecognized stage: {stage}. Expected one of 'fit', 'validate', or 'test'."
+                f"Unrecognized stage: {stage}. Expected one of 'fit', 'validate', 'test', or 'predict'."
             )
+
+    def _setup_predict_data(self) -> None:
+        """
+        Sets up the dataset for prediction/inference.
+        """
+        logger.info("Setting up data for prediction stage.")
+        # Load prediction data from each dataset class
+        prediction_datasets = [
+            dataset.get_prediction_data() for dataset in self.dataset_classes
+        ]
+        self.predict_dataset = self.process_dataset(
+            concatenate_datasets(prediction_datasets), stage=DatasetSplit.PREDICT
+        )
 
     def _process_stage_data(self, stage: str) -> None:
         """
@@ -200,22 +216,29 @@ class ImageDataModule(LightningDataModule):
             f"Training set size: {len(self.train_dataset)}, Validation set size: {len(self.val_dataset)}"
         )
 
-    def _create_dataloader(self, dataset: Dataset, shuffle: bool = False) -> DataLoader:
+    def _create_dataloader(
+        self, dataset: Dataset, shuffle: bool = False, coll_fn_data: Callable = coll_fn
+    ) -> DataLoader:
         """
-        Creates a DataLoader for the given dataset.
+        Creates a DataLoader for the given dataset with optional shuffling and custom collate function.
 
         Args:
-            dataset (Dataset): Dataset to load.
-            shuffle (bool, optional): If True, shuffles data in the DataLoader. Defaults to False.
+            dataset (Dataset): The dataset to load into the DataLoader.
+            shuffle (bool, optional): If True, shuffles the data in the DataLoader. Defaults to False.
+            coll_fn_data (Callable, optional): A custom collate function to process each batch of data.
+                Defaults to `coll_fn`, which is suitable for datasets containing labels.
+                For unlabeled data (e.g., during prediction), pass `coll_fn_predict` to handle
+                batches without label processing.
 
         Returns:
-            DataLoader: Configured DataLoader instance.
+            DataLoader: Configured DataLoader instance for the provided dataset, batch size,
+                number of workers, collate function, and shuffling behavior.
         """
         return DataLoader(
             dataset,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
-            collate_fn=coll_fn,
+            collate_fn=coll_fn_data,
             shuffle=shuffle,
         )
 
@@ -230,6 +253,16 @@ class ImageDataModule(LightningDataModule):
     def test_dataloader(self) -> DataLoader:
         """Returns the DataLoader for the test dataset."""
         return self._create_dataloader(self.test_dataset, shuffle=False)
+
+    def predict_dataloader(self) -> DataLoader:
+        """Returns the DataLoader for the prediction dataset."""
+        if not self.predict_dataset:
+            raise ValueError(
+                "Prediction dataset is not initialized. Call setup('predict') first."
+            )
+        return self._create_dataloader(
+            self.predict_dataset, shuffle=False, coll_fn_data=coll_fn_predict
+        )
 
     def get_dataset_hash(self, dataset: Dataset, stage: str) -> str:
         """

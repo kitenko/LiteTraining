@@ -24,7 +24,7 @@ class ImageClassificationModule(LightningModule):
     """
     ImageClassificationModule extends PyTorch Lightning's LightningModule for image classification models.
 
-    This class provides functionality for training, validation, and testing steps specific to image classification
+    This class provides functionality for training, validation, testing, and prediction steps specific to image classification,
     and supports configuration of optimizers and learning rate schedulers.
     """
 
@@ -61,9 +61,11 @@ class ImageClassificationModule(LightningModule):
         """
         return self.model(input_values)
 
-    def _step(self, batch: Dict[str, Any], phase: str) -> Dict[str, Tensor]:
+    def _train_val_test_step(
+        self, batch: Dict[str, Any], phase: str
+    ) -> Dict[str, Tensor]:
         """
-        Performs a forward pass, computes the loss, and logs the results for a specific phase (train, validation, or test).
+        Performs a forward pass, computes the loss, and logs results for a specific phase (train, validation, or test).
 
         Args:
             batch (Dict[str, Any]): Batch of data containing 'pixel_values' (image data) and 'labels'.
@@ -79,7 +81,7 @@ class ImageClassificationModule(LightningModule):
         self.log(
             f"{phase}_loss",
             loss,
-            on_step=(phase == "train"),
+            on_step=True,
             on_epoch=True,
             prog_bar=True,
         )
@@ -88,6 +90,20 @@ class ImageClassificationModule(LightningModule):
         preds = torch.argmax(outputs, dim=1)
 
         return {"loss": loss, "preds": preds, "targets": batch["labels"]}
+
+    def _predict_step(self, batch: Dict[str, Any]) -> Dict[str, Tensor]:
+        """
+        Performs a forward pass and generates predictions for unlabeled data.
+
+        Args:
+            batch (Dict[str, Any]): Batch of data containing only 'pixel_values'.
+
+        Returns:
+            Dict[str, torch.Tensor]: A dictionary containing predictions.
+        """
+        outputs = self(batch["pixel_values"])
+        preds = torch.argmax(outputs, dim=1)
+        return {"preds": preds}
 
     def training_step(self, batch: Dict[str, Any], batch_idx: int) -> Dict[str, Tensor]:
         """
@@ -100,7 +116,7 @@ class ImageClassificationModule(LightningModule):
         Returns:
             Dict[str, torch.Tensor]: A dictionary containing computed loss and metrics for the training batch.
         """
-        return self._step(batch, "train")
+        return self._train_val_test_step(batch, "train")
 
     def validation_step(
         self, batch: Dict[str, Any], batch_idx: int
@@ -115,7 +131,7 @@ class ImageClassificationModule(LightningModule):
         Returns:
             Dict[str, torch.Tensor]: A dictionary containing computed loss and metrics for the validation batch.
         """
-        return self._step(batch, "validation")
+        return self._train_val_test_step(batch, "validation")
 
     def test_step(self, batch: Dict[str, Any], batch_idx: int) -> Dict[str, Tensor]:
         """
@@ -128,7 +144,20 @@ class ImageClassificationModule(LightningModule):
         Returns:
             Dict[str, torch.Tensor]: A dictionary containing computed loss and metrics for the test batch.
         """
-        return self._step(batch, "test")
+        return self._train_val_test_step(batch, "test")
+
+    def predict_step(self, batch: Dict[str, Any], batch_idx: int) -> Dict[str, Tensor]:
+        """
+        Performs a single prediction step for image classification on unlabeled data.
+
+        Args:
+            batch (Dict[str, Any]): Batch of data containing only 'pixel_values' (no 'labels').
+            batch_idx (int): Index of the batch.
+
+        Returns:
+            Dict[str, torch.Tensor]: A dictionary containing predictions.
+        """
+        return self._predict_step(batch)
 
     def configure_optimizers(self) -> Dict[str, Union[Optimizer, _LRScheduler]]:
         """

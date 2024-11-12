@@ -65,3 +65,25 @@ def coll_fn(examples: List[Dict[str, Any]]) -> Dict[str, torch.Tensor]:
     pixel_values = torch.stack([example["pixel_values"] for example in examples])
     labels = torch.tensor([example["label"] for example in examples])
     return {"pixel_values": pixel_values, "labels": labels}
+
+
+def coll_fn_predict(examples: List[Dict[str, Any]]) -> Dict[str, torch.Tensor]:
+    """
+    A custom collate function for batching examples in a DataLoader for prediction.
+
+    This function takes a list of examples, where each example is a dictionary containing
+    only 'pixel_values' (the image tensor) without any 'label'. It stacks the 'pixel_values'
+    into a single tensor for the batch.
+
+    Args:
+        examples (List[Dict[str, Any]]): A list of dictionaries where each dictionary
+            contains:
+                - "pixel_values" (torch.Tensor): The image tensor.
+
+    Returns:
+        Dict[str, torch.Tensor]: A dictionary containing:
+            - "pixel_values" (torch.Tensor): A batched tensor of pixel values with shape
+              (batch_size, channels, height, width).
+    """
+    pixel_values = torch.stack([example["pixel_values"] for example in examples])
+    return {"pixel_values": pixel_values}
