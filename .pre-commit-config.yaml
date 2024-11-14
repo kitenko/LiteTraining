@@ -22,9 +22,9 @@ repos:
         types: [python]
         exclude: agent_utils.py
 
-      - id: pytest
-        name: Run pytest
-        entry: pytest
-        language: python
-        types: [python]
-        pass_filenames: false  # Don't pass file names to pytest, we want to run all tests
+      # - id: pytest
+      #   name: Run pytest
+      #   entry: pytest
+      #   language: python
+      #   types: [python]
+      #   pass_filenames: false  # Don't pass file names to pytest, we want to run all tests

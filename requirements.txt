@@ -1,0 +1,16 @@
+opencv-contrib-python==4.10.0.84
+pytorch-lightning==2.4.0
+optuna==3.6.1
+jsonargparse==4.33.2
+datasets==3.1.0
+cylimiter==0.4.2
+transformers==4.46.2
+python-dotenv==1.0.1
+albumentations==1.4.21
+jsonargparse[signatures]>=4.27.7
+pylint==3.3.1
+black==24.8.0
+pre-commit==3.8.0
+mypy==1.11.2
+types-pyyaml==6.0.12.20240917
+pytest-mock==3.14.0

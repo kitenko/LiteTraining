@@ -7,7 +7,7 @@ and learning rate schedulers based on user configuration.
 """
 
 from dataclasses import dataclass
-from typing import Optional, Dict, Any, Union, Tuple
+from typing import Optional, Dict, Any, Union, Tuple, Literal
 import logging
 import importlib
 import torch
@@ -16,7 +16,6 @@ from torch.optim.lr_scheduler import (
     StepLR,
     MultiStepLR,
     ReduceLROnPlateau,
-    _LRScheduler,
 )
 from torch import nn
 from transformers import AutoModelForImageClassification
@@ -25,6 +24,7 @@ from toolkit.env_loader import ConfigLoader
 logger = logging.getLogger(__name__)
 
 
+# pylint: disable=too-many-instance-attributes
 @dataclass
 class OptimConfig:
     """
@@ -42,7 +42,8 @@ class OptimConfig:
         patience (int): Number of epochs with no improvement after which learning rate will be reduced.
         metric_scheduler (str): The metric name monitored by ReduceLROnPlateau for learning rate scheduling.
         metric_patience (int): Patience specific to ReduceLROnPlateau.
-        mode (str): Mode for ReduceLROnPlateau, either "min" (for minimization) or "max" (for maximization).
+        mode (Literal['min', 'max']): Mode for ReduceLROnPlateau, either "min" (for minimization) or "max"
+                                      (for maximization).
     """
 
     lr: float
@@ -56,12 +57,13 @@ class OptimConfig:
     patience: int = 10
     metric_scheduler: str = "validation_f1_score"
     metric_patience: int = 5
-    mode: str = "max"
+    mode: Literal["min", "max"] = "max"
 
 
 class ImageClassification(nn.Module):
     """
-    A model class for image classification with customizable optimizer, learning rate scheduler, and layer-freezing options.
+    A model class for image classification with customizable optimizer, learning rate scheduler, and
+    layer-freezing options.
 
     Attributes:
         model (nn.Module): Hugging Face's image classification model instance.
@@ -192,30 +194,34 @@ class ImageClassification(nn.Module):
             weight_decay=self.optim_config.weight_decay,
         )
         logger.info(
-            f"Initialized optimizer: {self.optim_config.optimizer} with lr={self.optim_config.lr} and weight_decay={self.optim_config.weight_decay}"
+            f"Initialized optimizer: {self.optim_config.optimizer} with lr={self.optim_config.lr} and "
+            f"weight_decay={self.optim_config.weight_decay}"
         )
 
         # Initialize scheduler if specified
         scheduler_config: Optional[Dict[str, Any]] = None
 
         if self.optim_config.scheduler == "StepLR":
-            scheduler = StepLR(
+            scheduler_step_lr = StepLR(
                 optimizer,
                 step_size=self.optim_config.step_size,
                 gamma=self.optim_config.gamma,
             )
-            scheduler_config = {"scheduler": scheduler, "interval": "epoch"}
+            scheduler_config = {"scheduler": scheduler_step_lr, "interval": "epoch"}
 
         elif self.optim_config.scheduler == "MultiStepLR":
-            scheduler = MultiStepLR(
+            scheduler_multi_step_lr = MultiStepLR(
                 optimizer,
                 milestones=self.optim_config.milestones,
                 gamma=self.optim_config.gamma,
             )
-            scheduler_config = {"scheduler": scheduler, "interval": "epoch"}
+            scheduler_config = {
+                "scheduler": scheduler_multi_step_lr,
+                "interval": "epoch",
+            }
 
         elif self.optim_config.scheduler == "ReduceLROnPlateau":
-            scheduler = ReduceLROnPlateau(
+            scheduler_metric = ReduceLROnPlateau(
                 optimizer,
                 mode=self.optim_config.mode,
                 patience=self.optim_config.metric_patience,
@@ -223,7 +229,7 @@ class ImageClassification(nn.Module):
                 factor=self.optim_config.gamma,
             )
             scheduler_config = {
-                "scheduler": scheduler,
+                "scheduler": scheduler_metric,
                 "monitor": self.optim_config.metric_scheduler,
                 "interval": "epoch",
                 "strict": True,
@@ -255,4 +261,6 @@ class ImageClassification(nn.Module):
             return getattr(module, class_name)
         except (ImportError, AttributeError) as e:
             logger.error(f"Could not import {class_path}. Error: {e}")
-            raise ImportError(f"Failed to import {class_path}. Check path validity.")
+            raise ImportError(
+                f"Failed to import {class_path}. Check path validity."
+            ) from e

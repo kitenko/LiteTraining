@@ -2,7 +2,7 @@
 # Contains model, data, training, and logging configurations.
 
 seed_everything: 42  # Seed for reproducibility across experiments
-ckpt_path: null      # Checkpoint path (set to null to start from scratch)
+ckpt_path: /app/training_data/train_only_linear_layer/checkpoints/epoch=37-validation_f1_score=0.7647.ckpt   # Checkpoint path (set to null to start from scratch)
 
 # Anchor definitions for num_classes and image dimensions
 num_classes: &num_classes 42
@@ -10,8 +10,8 @@ image_height: &image_height 224
 image_width: &image_width 224
 
 experiment:
-  custom_folder_name: null # Custom folder name for storing experiment data
-  only_weights_load: false           # Flag to load only model weights from a checkpoint
+  custom_folder_name: train_encoder # Custom folder name for storing experiment data
+  only_weights_load: true           # Flag to load only model weights from a checkpoint
 
 model:
   model:
@@ -19,10 +19,10 @@ model:
     init_args:
       model_name: google/efficientnet-b3            # Pre-trained model name
       num_classes: *num_classes                     # Number of classes for output layer
-      freeze_encoder: true                          # Freeze encoder layers for transfer learning
+      freeze_encoder: false                          # Freeze encoder layers for transfer learning
       optimizer_config:
         scheduler: ReduceLROnPlateau
-        lr:  0.05
+        lr:  0.0005
 
   # Loss function configuration
   loss_fn:
@@ -47,16 +47,88 @@ common_transforms: &common_transforms
 
 data:
   num_workers: 8                                    # Number of data loading workers
-  batch_size: 64                                    # Batch size for training
+  batch_size: 1                                    # Batch size for training
   create_dataset: false                             # If true, will create the dataset from scratch
 
   dataset_classes:
     - class_path: dataset_modules.folder_image_dataset.FolderImageDataset
       init_args:
         train_val_dir: "data/train/simpsons_dataset"      # Directory for training and validation data
+        prediction_dir: "/app/data/testset/testset"
 
   normalizations: *common_transforms                # Reuse normalizations defined in common_transforms
-  augmentations: *common_transforms                 # Reuse augmentations defined in common_transforms
+  # Augmentations pipeline with additional transformations
+  augmentations:
+
+    - class_path: dataset_modules.augmentations.RandomCrop
+      init_args:
+        height: *image_height
+        width: *image_width
+        always_apply: False
+        p: 0.1
+
+    - class_path: dataset_modules.augmentations.Resize
+      init_args:
+        height: *image_height                         # Use the image height anchor
+        width: *image_width                           # Use the image width anchor
+
+    - class_path: dataset_modules.augmentations.HorizontalFlip
+      init_args:
+        p: 0.1
+
+    - class_path: dataset_modules.augmentations.VerticalFlip
+      init_args:
+        p: 0.1
+
+    - class_path: dataset_modules.augmentations.Rotate
+      init_args:
+        limit: 90
+        interpolation: 1
+        border_mode: 0
+        p: 0.1
+
+    - class_path: dataset_modules.augmentations.RandomBrightnessContrast
+      init_args:
+        brightness_limit: 0.2
+        contrast_limit: 0.2
+        p: 0.1
+
+    - class_path: dataset_modules.augmentations.GaussNoise
+      init_args:
+        var_limit: [10.0, 50.0]
+        p: 0.2
+
+    - class_path: dataset_modules.augmentations.GaussianBlur
+      init_args:
+        blur_limit: [3, 7]
+        p: 0.1
+
+    - class_path: dataset_modules.augmentations.MotionBlur
+      init_args:
+        blur_limit: 7
+        p: 0.05
+
+    - class_path: dataset_modules.augmentations.ElasticTransform
+      init_args:
+        alpha: 1.0
+        sigma: 50.0
+        alpha_affine: 50.0
+        p: 0.1
+
+    - class_path: dataset_modules.augmentations.GridDistortion
+      init_args:
+        num_steps: 5
+        distort_limit: 0.3
+        p: 0.1
+
+    - class_path: dataset_modules.augmentations.Normalize
+      init_args:
+        mean: [0.485, 0.456, 0.406]                   # Mean for each RGB channel
+        std: [0.478, 0.473, 0.474]                    # Standard deviation for each RGB channel
+        max_pixel_value: 255.0                        # Max pixel value for normalization
+
+    - class_path: albumentations.pytorch.transforms.ToTensorV2
+      init_args: {}                                   # Convert image to PyTorch tensor
 
 # Common metric arguments for consistent metric setup
 metric_common_args: &metric_common_args
@@ -84,6 +156,7 @@ trainer:
         mode: "max"                                 # Maximize the monitored metric
         save_top_k: 3                               # Number of top checkpoints to keep
         verbose: true                               # Log checkpoint saving
+        every_n_epochs: 5
 
     # Metrics logger configuration for multiple metrics
     - class_path: toolkit.callbacks.MetricsLoggerCallback
