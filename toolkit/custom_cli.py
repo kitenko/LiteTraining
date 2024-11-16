@@ -8,21 +8,25 @@ Features:
 3. Argument parsing for experiment-specific options, such as directory names and image processing parameters.
 """
 
-import os
 import logging
-from typing import Dict, Any
-from datetime import datetime
-from yaml import dump
+from pathlib import Path
+from typing import Optional, Dict, Any, List
+
+from jsonargparse import Namespace
 from pytorch_lightning import seed_everything
+from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.cli import LightningCLI, LightningArgumentParser
 
 from toolkit.logging_utils import setup_logging
 from toolkit.optuna_tuner import OptunaTuner, OptunaConfig
+from toolkit.folder_manager import (
+    find_keys_recursive,
+    setup_directories,
+    update_checkpoint_saver_dirpath,
+)
 
 logger = logging.getLogger(__name__)
 logger.propagate = True  # Enable logging handler propagation
-
-DEFAULT_LOGS_DIR = "logs/training_logs"
 
 
 class CustomLightningCLI(LightningCLI):
@@ -55,6 +59,23 @@ class CustomLightningCLI(LightningCLI):
             type=bool,
             default=False,
             help="Flag to load only the model weights, without restoring optimizer state. Defaults to False.",
+        )
+
+        parser.add_argument(
+            "--experiment.default_names",
+            nargs="+",
+            type=str,
+            default=[
+                "custom_folder_name",
+                "model_name",
+                "num_classes",
+                "optimizer",
+                "lr",
+                "image_height",
+                "image_width",
+                "freeze_encoder",
+            ],
+            help="List of parameter names to search in the configuration.",
         )
 
         # Testing and validation options
@@ -124,87 +145,89 @@ class CustomLightningCLI(LightningCLI):
 
     def before_instantiate_classes(self):
         """
-        Configures directories for checkpoints, logs, and saves the configuration before instantiating classes.
-        Also sets random seed for experiment reproducibility and creates directory structure.
+        Configures directories, sets seeds, and saves configurations before instantiating classes.
         """
-        config = self.config
-        seed_everything(config.get("seed_everything"))
+        config: Namespace = self.config
+        self.set_seed(config)
 
-        # Check if running in test or validation mode
-        if config.get("test", False) or config.get("val", False):
+        if self.is_test_or_val_mode(config):
             logger.info(
                 "Running in test or validation mode - skipping directory setup."
             )
             return
 
-        # Extract key configuration values
-        custom_folder_name = config.experiment.get("custom_folder_name", None)
-        model_name = config.model.model.init_args.get("model_name", "model")
-        num_classes = config.get("num_classes", "classes")
-        optimizer_name = config.model.model.init_args.optimizer_config.get(
-            "optimizer", "optimizer"
-        )
-        learning_rate = config.model.model.init_args.optimizer_config.get("lr", "lr")
-        image_height = config.get("image_height", "height")
-        image_width = config.get("image_width", "width")
-        freeze_encoder = config.model.model.init_args.get("freeze_encoder", False)
+        keys_to_find = config.experiment.default_names
+        found_values = self.extract_experiment_values(config, keys_to_find)
+        base_dir, checkpoints_dir, logs_dir = setup_directories(config, found_values)
 
-        # Generate folder name based on parameters
-        if custom_folder_name:
-            folder_name = custom_folder_name
-        else:
-            current_time = datetime.now().strftime("%d_%m_%Y_%H_%M")
-            params = {
-                "model": model_name,
-                "classes": num_classes,
-                "optimizer": optimizer_name,
-                "lr": learning_rate,
-                "img_size": f"{image_height}x{image_width}",
-                "freeze_encoder": "yes" if freeze_encoder else "no",
-                "time": current_time,
-            }
-            folder_name = "_".join([f"{key}_{value}" for key, value in params.items()])
-
-        # Set up base directory for storing experiment data
-        base_dir = os.path.join("/app/training_data", folder_name)
-
-        # Create directories for checkpoints and logs
-        checkpoints_dir = os.path.join(base_dir, "checkpoints")
-        logs_dir = os.path.join(base_dir, "logs", "training_logs")
-        os.makedirs(checkpoints_dir, exist_ok=True)
-        os.makedirs(logs_dir, exist_ok=True)
-
-        # Set up logging
-        setup_logging(logs_dir)
-
-        logger.info("Checkpoints directory created: %s", checkpoints_dir)
-        logger.info("Logs directory created: %s", logs_dir)
-
-        # Update trainer configuration for saving checkpoints and logs
-        config.trainer.default_root_dir = base_dir
-        config.trainer.callbacks[0].init_args.dirpath = checkpoints_dir
-
-        # Configure TensorBoard logger with dynamic path
-        config.trainer.logger = {
-            "class_path": "pytorch_lightning.loggers.TensorBoardLogger",
-            "init_args": {"save_dir": logs_dir, "name": "training_logs"},
-        }
-
-        # Save configuration as a YAML file
-        self.save_config(config, base_dir)
-
+        self.setup_logging_and_save_config(config, base_dir, logs_dir, checkpoints_dir)
         logger.info("Training data and logs will be stored in: %s", base_dir)
 
-    def save_config(self, config: Dict[str, Any], base_dir: str):
+    def set_seed(self, config):
+        """Sets random seed for reproducibility."""
+        seed_everything(config.get("seed_everything"))
+
+    def is_test_or_val_mode(self, config):
+        """Checks if running in test or validation mode."""
+        return config.get("test", False) or config.get("val", False)
+
+    def extract_experiment_values(
+        self, config: Namespace, keys_to_find: List[str]
+    ) -> Dict[str, Any]:
         """
-        Saves the configuration as a YAML file in the specified base directory.
+        Retrieves specific values from the given configuration based on provided keys.
 
         Args:
-            config (dict): The configuration object to save.
-            base_dir (str): The directory where the config file will be saved.
-        """
-        config_path = os.path.join(base_dir, "config.yaml")
-        with open(config_path, "w", encoding="utf-8") as config_file:
-            dump(config, config_file, default_flow_style=False)
+            config (Namespace): The configuration object to search.
+            keys_to_find (List[str]): Keys to extract from the configuration.
 
-        logger.info("Configuration saved to: %s", config_path)
+        Returns:
+            Dict[str, Any]: A dictionary of the found key-value pairs.
+
+        Raises:
+            KeyError: If any of the keys are missing in the configuration.
+        """
+        try:
+            return find_keys_recursive(config, keys_to_find)
+        except KeyError as e:
+            logger.error(f"Configuration key error: {e}")
+            raise
+
+    def setup_logging_and_save_config(
+        self,
+        config: Namespace,
+        base_dir: Path,
+        logs_dir: Optional[Path],
+        checkpoints_dir: Optional[Path],
+    ) -> None:
+        """
+        Sets up logging, updates the checkpoint saver directory, and configures the TensorBoard logger.
+
+        Args:
+            config (Namespace): The configuration object containing training and logging parameters.
+            base_dir (Path): The base directory where training-related files will be stored.
+            logs_dir (Optional[Path]): The directory where log files will be saved. If None, logging is skipped.
+            checkpoints_dir (Optional[Path]): The directory where model checkpoints will be saved. If None, checkpoint
+                                              updates are skipped.
+
+        Returns:
+            None
+        """
+        if logs_dir is None or checkpoints_dir is None:
+            return
+
+        # Set up logging for both file and console outputs
+        setup_logging(logs_dir)
+        config.trainer.default_root_dir = base_dir
+
+        # Update the directory path for PeriodicCheckpointSaver
+        update_checkpoint_saver_dirpath(config.trainer.callbacks, checkpoints_dir)
+
+        # Create an instance of TensorBoardLogger
+        tensorboard_logger = TensorBoardLogger(save_dir=logs_dir, name="training_logs")
+
+        # Attach the logger to the Trainer configuration
+        config.trainer.logger = tensorboard_logger
+
+        # Log hyperparameters for tracking in TensorBoard
+        tensorboard_logger.log_hyperparams(vars(config))

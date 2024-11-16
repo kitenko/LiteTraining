@@ -114,6 +114,10 @@ class ImageDatasetBase(ABC):
     def get_test_data(self) -> Tuple[Dataset, Optional[str]]:
         """Fetches the test dataset and its cached checksum."""
 
+    @abstractmethod
+    def get_prediction_data(self) -> Tuple[Dataset, Optional[str]]:
+        """Fetches the predict dataset and its cached checksum."""
+
     def get_full_dataset(self) -> Tuple[Dataset, Optional[str]]:
         """
         Combines all splits (train, validation, test) into a single dataset.
@@ -127,9 +131,9 @@ class ImageDatasetBase(ABC):
 
         full_dataset = concatenate_datasets([train_data, val_data, test_data])
         combined_checksum = hashlib.md5(
-            (train_checksum or "" + val_checksum or "" + test_checksum or "").encode(
-                "utf-8"
-            )
+            (
+                (train_checksum or "") + (val_checksum or "") + (test_checksum or "")
+            ).encode("utf-8")
         ).hexdigest()
 
         return full_dataset, combined_checksum

@@ -1,5 +1,6 @@
 """
-This is the main module for running the ImageClassificationCLI command with ImageClassificationModule and ImageDataModule.
+This is the main module for running the ImageClassificationCLI command with ImageClassificationModule and 
+ImageDataModule.
 
 It sets up a fault handler and starts the CLI for configuring and running image classification models.
 """
@@ -8,11 +9,9 @@ import logging
 import faulthandler
 from typing import Optional, Callable
 
-from models.image_classification_module import ImageClassificationModule
 from toolkit.custom_cli import CustomLightningCLI
 from toolkit.agent_utils import load_checkpoint
 from toolkit.predict_functions import run_predict_to_csv
-from dataset_modules.image_data_module import ImageDataModule
 
 # Enable fault handler to track segmentation faults
 faulthandler.enable()
@@ -24,13 +23,12 @@ logger = logging.getLogger(__name__)
 def run() -> None:
     """
     Main entry point for running the CLI with the specified model and dataset.
-    It handles tuning, testing, validation, training, or prediction processes based on the provided configuration in the CLI.
+    It handles tuning, testing, validation, training, or prediction processes based on the provided configuration in the
+    CLI.
     """
     try:
         # Instantiate the custom CLI for image classification
         cli = CustomLightningCLI(
-            ImageClassificationModule,
-            ImageDataModule,
             save_config_callback=None,
             run=False,
         )
@@ -38,7 +36,7 @@ def run() -> None:
         # Handle different processes like tuning, testing, validation, training, or prediction
         handle_cli_process(cli)
 
-    except Exception:
+    except Exception:  # pylint: disable=broad-exception-caught
         # Log the exception with stack trace for detailed debugging information
         logger.exception("An error occurred during training or setup")
 

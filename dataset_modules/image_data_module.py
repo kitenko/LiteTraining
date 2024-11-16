@@ -1,17 +1,33 @@
+"""
+This module provides the `ImageDataModule` class for managing image datasets 
+in PyTorch Lightning workflows.
+
+Key features:
+- Dataset setup for training, validation, testing, and prediction stages.
+- Automatic splitting of datasets into train, validation, and test sets.
+- Support for augmentations and normalizations using Albumentations.
+- Caching processed datasets for efficient reuse.
+"""
+
 import os
 import logging
 from typing import List, Optional, Callable
-from datasets import concatenate_datasets, Dataset
+
 from torch.utils.data import DataLoader
 from pytorch_lightning import LightningDataModule
+from datasets import concatenate_datasets, Dataset
+from albumentations.core.composition import BaseCompose
+from albumentations.core.transforms_interface import BasicTransform
+
 from dataset_modules.utils import coll_fn, coll_fn_predict
 from dataset_modules.base_dataset import ImageDatasetBase, DatasetSplit
 from dataset_modules.augmentations import TransformDataset
-from albumentations.core.transforms_interface import BasicTransform
+
 
 logger = logging.getLogger(__name__)
 
 
+# pylint: disable=too-many-instance-attributes, too-many-arguments, too-many-positional-arguments
 class ImageDataModule(LightningDataModule):
     """
     LightningDataModule for managing image datasets and DataLoader setup, with options for data augmentation,
@@ -20,8 +36,8 @@ class ImageDataModule(LightningDataModule):
 
     def __init__(
         self,
-        augmentations: List[BasicTransform],
-        normalizations: List[BasicTransform],
+        augmentations: List[BasicTransform | BaseCompose],
+        normalizations: List[BasicTransform | BaseCompose],
         dataset_classes: List[ImageDatasetBase],
         batch_size: int = 32,
         num_workers: int = 4,
@@ -40,7 +56,7 @@ class ImageDataModule(LightningDataModule):
             dataset_classes (List[ImageDatasetBase]): List of dataset classes for data loading.
             batch_size (int, optional): Batch size for DataLoader. Defaults to 32.
             num_workers (int, optional): Number of worker processes for DataLoader. Defaults to 4.
-            create_dataset (bool, optional): If True, forces dataset creation; otherwise loads from cache. Defaults to False.
+            create_dataset (bool, optional): If True, forces dataset creation; otherwise loads from cache.
             validation_split (float, optional): Fraction of data reserved for validation. Defaults to 0.1.
             test_split (Optional[float], optional): Fraction of data reserved for testing, if applicable.
             cache_dir (str, optional): Directory to store cached datasets. Defaults to './data/cache'.

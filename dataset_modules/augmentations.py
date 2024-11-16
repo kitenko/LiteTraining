@@ -1,6 +1,15 @@
-from typing import List, Literal, Union, Tuple, Dict
+"""
+This module defines various image augmentations and a dataset transformation class 
+for applying augmentations to batches of images.
+
+The module is built on top of the `albumentations` library and extends its 
+transformations for use in machine learning workflows.
+"""
+
+from typing import List, Literal, Union, Tuple, Dict, Any
+
 import numpy as np
-from albumentations import Compose
+from albumentations.core.composition import BaseCompose
 from albumentations.core.transforms_interface import BasicTransform
 from albumentations import (
     Compose,
@@ -21,6 +30,7 @@ from albumentations import (
 from albumentations.augmentations.transforms import Normalize as AlbumentationsNormalize
 
 
+# pylint: disable=too-few-public-methods
 class TransformDataset:
     """
     Applies a sequence of transformations to each image in a Hugging Face Dataset.
@@ -30,7 +40,7 @@ class TransformDataset:
         transformations (Compose): A composition of transformations to apply to each image.
     """
 
-    def __init__(self, transformations: List[BasicTransform]):
+    def __init__(self, transformations: List[Union[BasicTransform, BaseCompose]]):
         """
         Initializes the TransformDataset with specified transformations.
 
@@ -40,8 +50,8 @@ class TransformDataset:
         self.transformations = Compose(transformations)
 
     def __call__(
-        self, example_batch: Dict[str, Union[List, np.ndarray]]
-    ) -> Dict[str, np.ndarray]:
+        self, example_batch: Dict[str, Union[List[Any], np.ndarray]]
+    ) -> Dict[str, Union[List[Any], np.ndarray]]:
         """
         Applies transformations to each image in a batch.
 
@@ -198,10 +208,9 @@ class ElasticTransform(AlbumentationsElasticTransform):
         self,
         alpha: float = 1.0,
         sigma: float = 50.0,
-        alpha_affine: float = 50.0,
         p: float = 0.5,
     ):
-        super().__init__(alpha=alpha, sigma=sigma, alpha_affine=alpha_affine, p=p)
+        super().__init__(alpha=alpha, sigma=sigma, p=p)
 
 
 class GridDistortion(AlbumentationsGridDistortion):

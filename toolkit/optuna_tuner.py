@@ -9,21 +9,24 @@ parameters based on the hyperparameters sampled by Optuna.
 import os
 import copy
 import logging
-from typing import Any, Dict, Type
-from jsonargparse import Namespace
 from dataclasses import dataclass, field
+from typing import Any, Dict, Type, Literal, Tuple
 
 import yaml
 import optuna
 from optuna import Study, Trial
 from optuna.trial import FrozenTrial
+from jsonargparse import Namespace
 from pytorch_lightning.trainer import Trainer
+from pytorch_lightning.cli import LightningCLI
 
 from models.image_classification_module import ImageClassificationModule
 from dataset_modules.image_data_module import ImageDataModule
-from toolkit.agent_utils import instantiate_classes_from_config, instantiate_from_config
 
 logger = logging.getLogger(__name__)
+
+
+LOGS_DIR = "logs/lightning_logs"
 
 
 @dataclass
@@ -34,15 +37,15 @@ class OptunaConfig:
     Args:
         tune (bool): Whether to enable hyperparameter tuning.
         n_trials (int): Number of trials for hyperparameter search.
-        direction (str): Optimization direction ('minimize' or 'maximize').
+        direction (Literal["minimize", "maximize"]): Optimization direction ('minimize' or 'maximize').
         metric (str): Metric to optimize.
         search_spaces (Dict[str, Any]): Hyperparameter search spaces.
     """
 
     tune: bool = False
     n_trials: int = 10
-    direction: str = "minimize"
-    metric: str = "val_cer"
+    direction: Literal["minimize", "maximize"] = "minimize"
+    metric: str = "validation_f1_score"
     search_spaces: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -104,6 +107,30 @@ class OptunaTuner:
         # Final save of all study results
         self.save_study_results(study)
 
+    def filter_namespace(
+        self,
+        config: Namespace,
+        keep_keys: Tuple[str, ...] = ("model", "data", "trainer"),
+    ) -> Namespace:
+        """
+        Retains only the specified top-level keys in the Namespace object, removing all others.
+
+        Args:
+            config (Namespace): The original Namespace object.
+            keep_keys (Tuple[str, ...]): Tuple of top-level keys to retain (e.g., ("model", "data", "trainer")).
+
+        Returns:
+            Namespace: The filtered Namespace object with only the specified keys.
+        """
+        # Convert Namespace to dictionary
+        args_dict = vars(config)
+        # Create a new dictionary with only the specified keys
+        filtered_dict = {
+            key: value for key, value in args_dict.items() if key in keep_keys
+        }
+        # Convert filtered dictionary back to Namespace
+        return Namespace(**filtered_dict)
+
     def objective(self, trial: Trial, metric: str) -> float:
         """
         Objective function for Optuna to optimize the selected metric.
@@ -120,28 +147,14 @@ class OptunaTuner:
         # Clone and update the configuration with sampled hyperparameters
         config = copy.deepcopy(self.config)
         self.update_config_with_hparams(config, hparams)
+        end_config = self.filter_namespace(config)
 
-        # Instantiate augmentations if specified in the config
-        augmentations = None
-        if hasattr(config.data, "augmentations"):
-            augmentations = instantiate_classes_from_config(config.data.augmentations)
+        cli = LightningCLI(save_config_callback=None, run=False, args=end_config)
 
-        datasets = instantiate_classes_from_config(config.data.dataset_classes)
-
-        # Create model and DataModule using refactored methods
-        model = self.create_model(config)
-        datamodule = self.create_datamodule(config, augmentations, datasets)
-
-        # Prepare and create Trainer
-        trainer_kwargs = vars(config.trainer)
-        trainer = self.create_trainer(trainer_kwargs)
-
-        # Pass the processor from model to datamodule
-        datamodule.processor = model.processor
-        trainer.fit(model, datamodule)
+        cli.trainer.fit(cli.model, cli.datamodule)
 
         # Get the value of the optimization metric
-        val_result = trainer.callback_metrics.get(metric)
+        val_result = cli.trainer.callback_metrics.get(metric)
         if val_result is None:
             raise ValueError(
                 f"Metric '{metric}' not found in callback metrics. Hparams: {hparams}"
@@ -149,72 +162,6 @@ class OptunaTuner:
 
         logger.info(f"Optuna val_result: {val_result.item()}, hparams: {hparams}")
         return val_result.item()
-
-    def create_model(self, config: Namespace) -> ImageClassificationModule:
-        """
-        Creates and returns the model using the given configuration.
-
-        Args:
-            config: The configuration object.
-
-        Returns:
-            BaseModule: The model instance.
-        """
-        return self.model_class(**vars(config.model))
-
-    def create_datamodule(
-        self, config: Namespace, augmentations: Any, datasets: Any
-    ) -> ImageDataModule:
-        """
-        Creates and returns the DataModule using the given configuration, augmentations, and datasets.
-
-        Args:
-            config: The configuration object.
-            augmentations: The augmentations to be applied.
-            datasets: The dataset classes to be used.
-
-        Returns:
-            PhonemeDataModule: The DataModule instance.
-        """
-        datamodule_kwargs = vars(config.data)
-        datamodule_kwargs["augmentations"] = augmentations
-        datamodule_kwargs["dataset_classes"] = datasets
-        return self.datamodule_class(**datamodule_kwargs)
-
-    def create_trainer(self, trainer_kwargs: Dict[str, Any]) -> Trainer:
-        """
-        Creates and returns the Trainer using the given configuration.
-
-        Args:
-            trainer_kwargs (Dict[str, Any]): The trainer arguments from the configuration.
-
-        Returns:
-            Trainer: The Trainer instance.
-        """
-        self.instantiate_callbacks_and_logger(trainer_kwargs)
-        return self.trainer_class(**trainer_kwargs)
-
-    def instantiate_callbacks_and_logger(self, trainer_kwargs: Dict[str, Any]) -> None:
-        """
-        Helper function to instantiate callbacks and logger from config.
-
-        Args:
-            trainer_kwargs (dict): The arguments for the Trainer class.
-        """
-        # Instantiate callbacks
-        if "callbacks" in trainer_kwargs:
-            callbacks_config = trainer_kwargs.pop("callbacks")
-            callbacks = []
-            for callback_conf in callbacks_config:
-                callback = instantiate_from_config(callback_conf)
-                callbacks.append(callback)
-            trainer_kwargs["callbacks"] = callbacks
-
-        # Instantiate logger
-        if "logger" in trainer_kwargs:
-            logger_config = trainer_kwargs.pop("logger")
-            logger_pl = instantiate_from_config(logger_config)
-            trainer_kwargs["logger"] = logger_pl
 
     def get_hparams_from_trial(self, trial: Trial) -> Dict[str, Any]:
         """
@@ -261,9 +208,7 @@ class OptunaTuner:
             study (optuna.study.Study): The current Optuna study.
             trial (optuna.trial.FrozenTrial): The current trial.
         """
-        logs_dir = os.path.join(
-            self.config.trainer.default_root_dir, PathConstants.LOGS_DIR.value
-        )
+        logs_dir = os.path.join(self.config.trainer.default_root_dir, LOGS_DIR)
         filepath = os.path.join(logs_dir, "optuna_results.yaml")
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
@@ -307,9 +252,7 @@ class OptunaTuner:
             ],
         }
 
-        logs_dir = os.path.join(
-            self.config.trainer.default_root_dir, PathConstants.LOGS_DIR.value
-        )
+        logs_dir = os.path.join(self.config.trainer.default_root_dir, LOGS_DIR)
         filepath = os.path.join(logs_dir, "optuna_final_results.yaml")
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         with open(filepath, "w", encoding="utf-8") as file:
@@ -317,9 +260,7 @@ class OptunaTuner:
 
         logger.info(f"Final Optuna results saved to: {filepath}")
 
-    def update_config_with_hparams(
-        self, config: Namespace, hparams: Dict[str, Any]
-    ) -> None:
+    def update_config_with_hparams(self, config: Namespace, hparams: Dict[str, Any]):
         """
         Updates the configuration object with the sampled hyperparameters from the trial.
 

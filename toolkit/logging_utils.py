@@ -7,15 +7,27 @@ in a specified file and display them in the console with consistent formatting.
 
 import os
 import logging
+from pathlib import Path
+from typing import Union
 
 
-def setup_logging(log_dir: str, log_filename: str = "training_log.log") -> None:
+def setup_logging(
+    log_dir: Union[Path, str], log_filename: Union[Path, str] = "training_log.log"
+) -> None:
     """
     Sets up logging to store logs in a specified directory and display them in the console.
 
     Args:
-        log_dir (str): Path to the directory where log files will be stored.
-        log_filename (str): Name of the log file. Defaults to 'training_log.log'.
+        log_dir (Union[Path, str]): Path to the directory where log files will be stored.
+            Can be provided as a `pathlib.Path` object or a string.
+        log_filename (Union[Path, str]): Name of the log file. Defaults to 'training_log.log'.
+            Can be provided as a `pathlib.Path` object or a string.
+
+    Returns:
+        None
+
+    Raises:
+        FileNotFoundError: If `log_dir` cannot be created or is invalid.
     """
     # Get the root logger
     root_logger = logging.getLogger()
@@ -32,7 +44,9 @@ def setup_logging(log_dir: str, log_filename: str = "training_log.log") -> None:
     root_logger.setLevel(logging.INFO)
 
     # Define log format
-    log_format = "[%(asctime)s] %(levelname)-8s %(filename)s:%(lineno)d - %(name)s - %(message)s"
+    log_format = (
+        "[%(asctime)s] %(levelname)-8s %(filename)s:%(lineno)d - %(name)s - %(message)s"
+    )
     formatter = logging.Formatter(log_format)
 
     # File handler for logging to a file
@@ -49,4 +63,6 @@ def setup_logging(log_dir: str, log_filename: str = "training_log.log") -> None:
     root_logger.addHandler(file_handler)
     root_logger.addHandler(console_handler)
 
-    root_logger.info("Logging has been set up. Logs will be stored in: %s", log_filepath)
+    root_logger.info(
+        "Logging has been set up. Logs will be stored in: %s", log_filepath
+    )

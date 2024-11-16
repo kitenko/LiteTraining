@@ -1,12 +1,29 @@
+# pylint: disable=R1705
+"""
+This module provides the `FolderImageDataset` class, which is designed for loading, processing,
+caching, and splitting image datasets into training, validation, test, and prediction-only datasets.
+
+Key functionalities include:
+- Stratified splitting of datasets into training and validation subsets.
+- Support for caching datasets to optimize loading and preprocessing.
+- Class label initialization and class distribution logging for datasets.
+
+The module also defines the `DatasetSection` enum for identifying different dataset sections
+and uses utilities such as `ensure_cache_loaded` for handling cached datasets efficiently.
+"""
+
 import os
 import logging
 from enum import Enum
 from collections import Counter
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
+
 from datasets import load_dataset, Dataset
+from sklearn.model_selection import StratifiedShuffleSplit
+
 from dataset_modules.base_dataset import ImageDatasetBase, DatasetSplit
 from dataset_modules.utils import ensure_cache_loaded
-from sklearn.model_selection import StratifiedShuffleSplit
+
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +38,11 @@ class DatasetSection(Enum):
     PREDICT = "predict"  # Новый тип для данных предсказания
 
 
+# pylint: disable=too-many-instance-attributes
 class FolderImageDataset(ImageDatasetBase):
     """
-    Class for loading, processing, caching, and splitting image datasets into training, validation, test sets, and prediction-only datasets.
+    Class for loading, processing, caching, and splitting image datasets into training, validation, test sets, and
+    prediction-only datasets.
 
     Attributes:
         train_val_dir (str): Directory containing training and validation images.
@@ -55,7 +74,8 @@ class FolderImageDataset(ImageDatasetBase):
 
         logger.info(
             f"Initializing FolderImageDataset with parameters: train_val_dir={train_val_dir}, "
-            f"test_dir={test_dir}, prediction_dir={prediction_dir}, validation_split={validation_split}, cache_dir={cache_dir}"
+            f"test_dir={test_dir}, prediction_dir={prediction_dir}, validation_split={validation_split}, "
+            f"cache_dir={cache_dir}"
         )
 
         self.train_val_dir = train_val_dir
@@ -64,27 +84,33 @@ class FolderImageDataset(ImageDatasetBase):
         self.validation_split = validation_split
 
         # Initialize checksum attributes for cached data
-        self.cached_train_checksum = None
-        self.cached_val_checksum = None
-        self.cached_test_checksum = None
-        self.cached_predict_checksum = None
+        self.cached_train_checksum: Optional[str] = None
+        self.cached_val_checksum: Optional[str] = None
+        self.cached_test_checksum: Optional[str] = None
+        self.cached_predict_checksum: Optional[str] = None
 
-        self.class_labels = []
+        self.class_labels: List[str] = []
 
-    def load_data(self, create_dataset: bool = False) -> None:
+        # Initialize dataset attributes
+        self.train_dataset: Optional[Dataset] = None
+        self.val_dataset: Optional[Dataset] = None
+        self.test_dataset: Optional[Dataset] = None
+        self.prediction_dataset: Optional[Dataset] = None
+
+    def load_data(self, regenerate: bool = False) -> None:
         """
         Loads the training, validation, test, and prediction data, using cached datasets if available.
         Forces dataset creation if `create_dataset` is set to True.
 
         Args:
-            create_dataset (bool): If True, forces re-creation of the dataset from source files.
+            regenerate (bool): If True, forces re-creation of the dataset from source files.
         """
         train_val_data, self.cached_train_checksum, self.cached_val_checksum = (
             self._load_and_cache_split(
                 DatasetSection.TRAIN_VAL,
                 self.train_val_dir,
                 split_ratio=self.validation_split,
-                create_dataset=create_dataset,
+                create_dataset=regenerate,
             )
         )
         self.train_dataset, self.val_dataset = train_val_data
@@ -94,13 +120,13 @@ class FolderImageDataset(ImageDatasetBase):
                 DatasetSection.TEST,
                 self.test_dir,
                 split_ratio=None,
-                create_dataset=create_dataset,
+                create_dataset=regenerate,
             )
 
         if self.prediction_dir:
             self.prediction_dataset, self.cached_predict_checksum = (
                 self._load_prediction_data(
-                    self.prediction_dir, create_dataset=create_dataset
+                    self.prediction_dir, create_dataset=regenerate
                 )
             )
 
@@ -125,7 +151,8 @@ class FolderImageDataset(ImageDatasetBase):
             create_dataset (bool): If True, bypasses cache and re-creates the dataset.
 
         Returns:
-            Tuple: Either (train_dataset, val_dataset) with checksums for TRAIN_VAL or (test_dataset, checksum) for TEST.
+            Tuple: Either (train_dataset, val_dataset) with checksums for TRAIN_VAL or (test_dataset, checksum) for
+            TEST.
         """
         section_name = section.value
         logger.info(f"Computing checksum for {section_name} directory: {data_dir}")
@@ -223,7 +250,6 @@ class FolderImageDataset(ImageDatasetBase):
             logger.warning("No 'label' column found in the dataset features.")
             return
 
-        # Используем features для получения списка меток
         label_feature = self.train_dataset.features["label"]
         if hasattr(label_feature, "names"):
             self.class_labels = label_feature.names
@@ -278,14 +304,16 @@ class FolderImageDataset(ImageDatasetBase):
         """
         if data_type == DatasetSplit.TRAIN.value:
             return self.train_dataset
-        elif data_type == DatasetSplit.VALIDATION.value:
+
+        if data_type == DatasetSplit.VALIDATION.value:
             return self.val_dataset
-        elif data_type == DatasetSplit.TEST.value:
+
+        if data_type == DatasetSplit.TEST.value:
             if not hasattr(self, "test_dataset"):
                 raise ValueError("Test dataset is not available.")
             return self.test_dataset
-        else:
-            raise ValueError(f"Invalid data_type '{data_type}' specified.")
+
+        raise ValueError(f"Invalid data_type '{data_type}' specified.")
 
     @ensure_cache_loaded
     def get_prediction_data(self) -> Dataset:
@@ -300,13 +328,13 @@ class FolderImageDataset(ImageDatasetBase):
         return self.prediction_dataset
 
     @ensure_cache_loaded
-    def get_train_data(self) -> Tuple[Dataset, str]:
+    def get_train_data(self) -> Tuple[Dataset, Optional[str]]:
         """Fetches the training dataset and its checksum, loading from cache if available."""
         logger.info("Fetching training data...")
         return self.train_dataset, self.cached_train_checksum
 
     @ensure_cache_loaded
-    def get_validation_data(self) -> Tuple[Dataset, str]:
+    def get_validation_data(self) -> Tuple[Dataset, Optional[str]]:
         """Fetches the validation dataset and its checksum, loading from cache if available."""
         logger.info("Fetching validation data...")
         return self.val_dataset, self.cached_val_checksum
