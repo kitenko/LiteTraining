@@ -9,20 +9,17 @@ Features:
 """
 
 import logging
-from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Dict, Any, List
 
 from jsonargparse import Namespace
 from pytorch_lightning import seed_everything
-from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.cli import LightningCLI, LightningArgumentParser
 
-from toolkit.logging_utils import setup_logging
 from toolkit.optuna_tuner import OptunaTuner, OptunaConfig
 from toolkit.folder_manager import (
     find_keys_recursive,
     setup_directories,
-    update_checkpoint_saver_dirpath,
+    setup_logging_and_save_config,
 )
 
 logger = logging.getLogger(__name__)
@@ -135,12 +132,14 @@ class CustomLightningCLI(LightningCLI):
         Starts the Optuna hyperparameter optimization process by initializing an OptunaTuner
         and running the optimization using the defined model, data module, and trainer classes.
         """
-        optuna_tuner = OptunaTuner(
-            self.config,
-            self.model_class,
-            self.datamodule_class,
-            self.trainer_class,
-        )
+        if not self.base_dir:
+            raise ValueError(
+                "The base_dir attribute is not set or is an empty string. Ensure that "
+                "before running Optuna, the setup_directories method has been called, "
+                "and base_dir is properly initialized."
+            )
+
+        optuna_tuner = OptunaTuner(self.config, self.base_dir)
         optuna_tuner.run_optimization()
 
     def before_instantiate_classes(self):
@@ -160,7 +159,9 @@ class CustomLightningCLI(LightningCLI):
         found_values = self.extract_experiment_values(config, keys_to_find)
         base_dir, checkpoints_dir, logs_dir = setup_directories(config, found_values)
 
-        self.setup_logging_and_save_config(config, base_dir, logs_dir, checkpoints_dir)
+        self.base_dir = base_dir
+
+        setup_logging_and_save_config(config, base_dir, logs_dir, checkpoints_dir)
         logger.info("Training data and logs will be stored in: %s", base_dir)
 
     def set_seed(self, config):
@@ -192,42 +193,3 @@ class CustomLightningCLI(LightningCLI):
         except KeyError as e:
             logger.error(f"Configuration key error: {e}")
             raise
-
-    def setup_logging_and_save_config(
-        self,
-        config: Namespace,
-        base_dir: Path,
-        logs_dir: Optional[Path],
-        checkpoints_dir: Optional[Path],
-    ) -> None:
-        """
-        Sets up logging, updates the checkpoint saver directory, and configures the TensorBoard logger.
-
-        Args:
-            config (Namespace): The configuration object containing training and logging parameters.
-            base_dir (Path): The base directory where training-related files will be stored.
-            logs_dir (Optional[Path]): The directory where log files will be saved. If None, logging is skipped.
-            checkpoints_dir (Optional[Path]): The directory where model checkpoints will be saved. If None, checkpoint
-                                              updates are skipped.
-
-        Returns:
-            None
-        """
-        if logs_dir is None or checkpoints_dir is None:
-            return
-
-        # Set up logging for both file and console outputs
-        setup_logging(logs_dir)
-        config.trainer.default_root_dir = base_dir
-
-        # Update the directory path for PeriodicCheckpointSaver
-        update_checkpoint_saver_dirpath(config.trainer.callbacks, checkpoints_dir)
-
-        # Create an instance of TensorBoardLogger
-        tensorboard_logger = TensorBoardLogger(save_dir=logs_dir, name="training_logs")
-
-        # Attach the logger to the Trainer configuration
-        config.trainer.logger = tensorboard_logger
-
-        # Log hyperparameters for tracking in TensorBoard
-        tensorboard_logger.log_hyperparams(vars(config))

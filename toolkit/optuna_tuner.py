@@ -6,27 +6,27 @@ saving the results of each trial and final study results, as well as updating co
 parameters based on the hyperparameters sampled by Optuna.
 """
 
-import os
 import copy
 import logging
+from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Any, Dict, Type, Literal, Tuple
+from typing import Any, Dict, Literal, Tuple, Optional
 
-import yaml
 import optuna
 from optuna import Study, Trial
 from optuna.trial import FrozenTrial
 from jsonargparse import Namespace
-from pytorch_lightning.trainer import Trainer
 from pytorch_lightning.cli import LightningCLI
 
-from models.image_classification_module import ImageClassificationModule
-from dataset_modules.image_data_module import ImageDataModule
+from toolkit.folder_manager import (
+    setup_directories_optuna,
+    setup_logging_and_save_config,
+    load_yaml,
+    save_yaml,
+)
+
 
 logger = logging.getLogger(__name__)
-
-
-LOGS_DIR = "logs/lightning_logs"
 
 
 @dataclass
@@ -40,6 +40,8 @@ class OptunaConfig:
         direction (Literal["minimize", "maximize"]): Optimization direction ('minimize' or 'maximize').
         metric (str): Metric to optimize.
         search_spaces (Dict[str, Any]): Hyperparameter search spaces.
+        restore_search (Optional[str]): Path to a previously saved Optuna study results folder.
+        storage (Optional[str]): Path or URL to the Optuna storage backend (e.g., SQLite database).
     """
 
     tune: bool = False
@@ -47,6 +49,8 @@ class OptunaConfig:
     direction: Literal["minimize", "maximize"] = "minimize"
     metric: str = "validation_f1_score"
     search_spaces: Dict[str, Any] = field(default_factory=dict)
+    restore_search: Optional[str] = None
+    storage: Optional[str] = "sqlite:///data/optuna_study.db"  # Default storage
 
 
 class OptunaTuner:
@@ -60,51 +64,84 @@ class OptunaTuner:
     def __init__(
         self,
         config: Namespace,
-        model_class: Type[ImageClassificationModule],
-        datamodule_class: Type[ImageDataModule],
-        trainer_class: Type[Trainer],
+        base_dir: Path,
     ) -> None:
         """
         Initializes the OptunaTuner with the configuration, model class, data module class, and trainer class.
 
         Args:
             config (Namespace): The configuration object from jsonargparse.
-            model_class (Type[BaseModule]): The class for the model to be used in the training.
-            datamodule_class (Type[PhonemeDataModule]): The class for the DataModule.
-            trainer_class (Type[Trainer]): The class for the Trainer.
+            base_dir (str): The name of the folder generated for this experiment.
         """
         self.config = config
-        self.model_class = model_class
-        self.datamodule_class = datamodule_class
-        self.trainer_class = trainer_class
+        self.base_dir = base_dir
 
     def run_optimization(self) -> None:
         """
         Runs the Optuna optimization process and manages the study.
+
+        This method initializes or loads an Optuna study, adjusts the number of remaining trials,
+        and logs the results after the optimization is complete.
         """
-        n_trials = self.config.optuna.n_trials
-        direction = self.config.optuna.direction
-        metric = self.config.optuna.metric
-        study = optuna.create_study(direction=direction)
+        optuna_config = self.config.optuna
+
+        study_name = str(self.base_dir)
+        direction = optuna_config.direction
+        metric = optuna_config.metric
+        storage = optuna_config.storage
+        n_trials = optuna_config.n_trials
+
+        # Load or create an Optuna study
+        try:
+            if optuna_config.restore_search:
+                logger.info(f"Restoring study from: {optuna_config.restore_search}")
+                study = optuna.load_study(
+                    study_name=str(optuna_config.restore_search),
+                    storage=storage,
+                )
+            else:
+                logger.info("Creating a new Optuna study.")
+                study = optuna.create_study(
+                    study_name=study_name,
+                    direction=direction,
+                    storage=storage,
+                )
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error(f"Failed to initialize or restore the study: {e}")
+            return
+
+        # Calculate the number of completed trials
+        completed_trials = len(
+            [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
+        )
+        remaining_trials = n_trials - completed_trials
+
+        # Exit if all trials are already completed
+        if remaining_trials <= 0:
+            logger.info("All trials have already been successfully completed.")
+            return
 
         try:
-            # Optimization process with trial result saving after each trial
+            # Run the optimization process for the remaining trials
+            logger.info(
+                f"Starting optimization with {remaining_trials} remaining trials."
+            )
             study.optimize(
                 lambda trial: self.objective(trial, metric),
-                n_trials=n_trials,
+                n_trials=remaining_trials,
                 callbacks=[self.save_trial_results],
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error(f"Optimization failed: {e}")
 
-        # Log the best results, even if the optimization failed
-        if study.best_trial is not None:
+        # Log the best results
+        if study.best_trial:
             logger.info(f"Best trial value: {study.best_trial.value}")
-            logger.info(f"Best parameters: {study.best_trial.params}")
+            logger.info(f"Best trial parameters: {study.best_trial.params}")
         else:
             logger.warning("No successful trials were found.")
 
-        # Final save of all study results
+        # Save the final study results
         self.save_study_results(study)
 
     def filter_namespace(
@@ -143,10 +180,16 @@ class OptunaTuner:
             float: The value of the metric for this trial.
         """
         hparams = self.get_hparams_from_trial(trial)
+        base_dir, checkpoints_dir, logs_dir = setup_directories_optuna(
+            self.base_dir, trial.number
+        )
 
         # Clone and update the configuration with sampled hyperparameters
         config = copy.deepcopy(self.config)
         self.update_config_with_hparams(config, hparams)
+
+        setup_logging_and_save_config(config, base_dir, logs_dir, checkpoints_dir)
+
         end_config = self.filter_namespace(config)
 
         cli = LightningCLI(save_config_callback=None, run=False, args=end_config)
@@ -208,28 +251,25 @@ class OptunaTuner:
             study (optuna.study.Study): The current Optuna study.
             trial (optuna.trial.FrozenTrial): The current trial.
         """
-        logs_dir = os.path.join(self.config.trainer.default_root_dir, LOGS_DIR)
-        filepath = os.path.join(logs_dir, "optuna_results.yaml")
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        trial_results_path = self.base_dir / "optuna_results.yaml"
 
-        if os.path.exists(filepath):
-            with open(filepath, "r", encoding="utf-8") as file:
-                results = yaml.safe_load(file) or {}
-        else:
+        try:
+            results = load_yaml(trial_results_path)
+        except FileNotFoundError:
+            logger.warning(
+                f"YAML file not found, creating a new one: {trial_results_path}"
+            )
             results = {}
 
-        trial_results = {
+        results[f"trial_{trial.number}"] = {
             "number": trial.number,
             "value": trial.value,
             "params": trial.params,
             "state": str(trial.state),
         }
-        results[f"trial_{trial.number}"] = trial_results
 
-        with open(filepath, "w", encoding="utf-8") as file:
-            yaml.dump(results, file, default_flow_style=False)
-
-        logger.info(f"Trial {trial.number} results saved to: {filepath}")
+        save_yaml(results, trial_results_path)
+        logger.info(f"Trial {trial.number} results saved to: {trial_results_path}")
 
     def save_study_results(self, study: Study) -> None:
         """
@@ -238,9 +278,11 @@ class OptunaTuner:
         Args:
             study (optuna.study.Study): The Optuna study instance.
         """
+        final_results_path = self.base_dir / "optuna_final_results.yaml"
+
         results = {
-            "best_trial_value": study.best_trial.value,
-            "best_trial_params": study.best_trial.params,
+            "best_trial_value": study.best_trial.value if study.best_trial else None,
+            "best_trial_params": study.best_trial.params if study.best_trial else {},
             "trials": [
                 {
                     "number": trial.number,
@@ -252,13 +294,8 @@ class OptunaTuner:
             ],
         }
 
-        logs_dir = os.path.join(self.config.trainer.default_root_dir, LOGS_DIR)
-        filepath = os.path.join(logs_dir, "optuna_final_results.yaml")
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        with open(filepath, "w", encoding="utf-8") as file:
-            yaml.dump(results, file, default_flow_style=False)
-
-        logger.info(f"Final Optuna results saved to: {filepath}")
+        save_yaml(results, final_results_path)
+        logger.info(f"Final Optuna results saved to: {final_results_path}")
 
     def update_config_with_hparams(self, config: Namespace, hparams: Dict[str, Any]):
         """

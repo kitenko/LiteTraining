@@ -6,6 +6,7 @@ optuna:
   n_trials: 10
   direction: maximize
   metric: validation_f1_score
+  restore_search: /app/training_data/optuna_search_test_optuna
   search_spaces:
     data.init_args.augmentations[2].init_args.p:
       distribution: uniform
@@ -155,7 +156,6 @@ data:
         init_args:
           alpha: 1.0
           sigma: 50.0
-          alpha_affine: 50.0
           p: 0.1
 
       - class_path: dataset_modules.augmentations.GridDistortion
@@ -182,7 +182,7 @@ metric_common_args: &metric_common_args
 trainer:
   accelerator: "gpu"                                # Hardware accelerator to use
   devices: [0]                                      # GPU device ID(s) to use
-  max_epochs: 10                                    # Maximum number of training epochs
+  max_epochs: 3                                    # Maximum number of training epochs
   precision: 16-mixed                               # Mixed precision training (16-bit)
   limit_train_batches: 0.2                          # Fraction of training batches to use per epoch
   limit_val_batches: 0.2                            # Fraction of validation batches to use per epoch
@@ -193,7 +193,6 @@ trainer:
     # Periodic checkpoint saving configuration
     - class_path: toolkit.callbacks.PeriodicCheckpointSaver
       init_args:
-        dirpath: "checkpoints"                      # Directory for saving checkpoints
         filename: "{epoch:02d}-{validation_f1_score:.4f}"  # Filename format for checkpoints
         monitor: "validation_f1_score"              # Metric to monitor for saving
         mode: "max"                                 # Maximize the monitored metric

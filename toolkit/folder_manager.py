@@ -11,12 +11,16 @@ Features:
 import os
 import re
 import logging
-from typing import Dict, List, Any, Union, Set, Optional, Tuple
-from datetime import datetime
-from pathlib import Path
 from enum import Enum
-from jsonargparse import Namespace
+from pathlib import Path
+from datetime import datetime
+from typing import Dict, List, Any, Union, Set, Optional, NamedTuple
 
+import yaml
+from jsonargparse import Namespace
+from pytorch_lightning.loggers import TensorBoardLogger
+
+from toolkit.logging_utils import setup_logging
 
 # Logger setup
 logger = logging.getLogger(__name__)
@@ -29,16 +33,45 @@ class DirectoryPaths(Enum):
     Attributes:
         BASE_DIR: The base directory for the project, typically the current working directory.
         TRAINING_DATA: Directory for storing training-related data.
-        CHECKPOINTS: Directory for saving model checkpoints.
-        LOGS: Directory for storing logs.
-        TRAINING_LOGS: Subdirectory for training-specific logs.
     """
 
     BASE_DIR = Path(os.getcwd())
     TRAINING_DATA = BASE_DIR / "training_data"
-    CHECKPOINTS = TRAINING_DATA / "checkpoints"
-    LOGS = TRAINING_DATA / "logs"
-    TRAINING_LOGS = LOGS / "training_logs"
+
+
+class Subdirectory(Enum):
+    """
+    Enum for defining subdirectories used in the project.
+
+    Attributes:
+        CHECKPOINTS: Subdirectory for model checkpoints.
+        LOGS: Subdirectory for logs.
+    """
+
+    CHECKPOINTS = "checkpoints"
+    LOGS = "logs"
+
+    @classmethod
+    def list(cls) -> list[str]:
+        """Returns a list of all subdirectory names."""
+        return [item.value for item in cls]
+
+
+class DirectoryStructure(NamedTuple):
+    """
+    Represents the directory structure used in training workflows.
+
+    Attributes:
+        base_dir (Path): The base directory where all experiment-related files are stored.
+        checkpoints_dir (Optional[Path]): The directory for saving model checkpoints.
+                                          This may be None if checkpoints are not used.
+        logs_dir (Optional[Path]): The directory for storing log files.
+                                   This may be None if logging is not configured.
+    """
+
+    base_dir: Path
+    checkpoints_dir: Optional[Path]
+    logs_dir: Optional[Path]
 
 
 def find_keys_recursive(config: Namespace, keys_to_find: List[str]) -> Dict[str, Any]:
@@ -118,39 +151,95 @@ def generate_folder_name(
     return sanitize_folder_name(folder_name)
 
 
-def setup_directories(
-    config: Namespace, found_values: Dict[str, Any]
-) -> Tuple[Path, Optional[Path], Optional[Path]]:
+def create_directory_structure(
+    base_dir: Path, subdirectories: Optional[list[Subdirectory]] = None
+) -> DirectoryStructure:
     """
-    Sets up the directory structure for training, including base, checkpoints, and logs directories.
+    Creates a base directory and optional subdirectories.
 
     Args:
-        config (Namespace): The configuration object containing experiment settings.
-        found_values (Dict[str, Any]): A dictionary of extracted values used for folder naming.
+        base_dir (Path): The main directory to create.
+        subdirectories (list[Subdirectory], optional): Subdirectories to create within the base directory.
 
     Returns:
-        Tuple[Path, Optional[Path], Optional[Path]]:
-            - `base_dir` (Path): The base directory for the experiment.
-            - `checkpoints_dir` (Optional[Path]): Directory for saving checkpoints (or None if not created).
-            - `logs_dir` (Optional[Path]): Directory for saving logs (or None if not created).
+        DirectoryStructure: Struct containing paths to the base directory and subdirectories.
     """
-    custom_folder_name = config.experiment.get("custom_folder_name", None)
-    folder_name = generate_folder_name(found_values, custom_folder_name)
-    base_dir = DirectoryPaths.TRAINING_DATA.value / folder_name
-
+    base_dir.mkdir(parents=True, exist_ok=True)
     checkpoints_dir = logs_dir = None
 
-    if config.get("optuna", {}).get("tune", False):
-        folder_name = "optuna_search_" + folder_name
-        os.makedirs(base_dir, exist_ok=True)
+    if subdirectories:
+        for subdir in subdirectories:
+            dir_path = base_dir / subdir.value
+            dir_path.mkdir(parents=True, exist_ok=True)
+            if subdir == Subdirectory.CHECKPOINTS:
+                checkpoints_dir = dir_path
+            elif subdir == Subdirectory.LOGS:
+                logs_dir = dir_path
+
+    return DirectoryStructure(
+        base_dir=base_dir, checkpoints_dir=checkpoints_dir, logs_dir=logs_dir
+    )
+
+
+def setup_directories(
+    config: Namespace, found_values: Dict[str, Any]
+) -> DirectoryStructure:
+    """
+    Sets up directories for training, including base, checkpoints, and logs.
+
+    Args:
+        config (Namespace): Configuration object with experiment settings.
+        found_values (Dict[str, Any]): Dictionary of extracted values for folder naming.
+
+    Returns:
+        DirectoryStructure: Struct containing paths for base, checkpoints, and logs directories.
+    """
+    # Generate folder name
+    custom_folder_name = config.experiment.get("custom_folder_name", None)
+    folder_name = generate_folder_name(found_values, custom_folder_name)
+
+    # Handle Optuna restore or new tuning session
+    optuna_config = config.get("optuna", {})
+    restore_path = optuna_config.get("restore_search")
+    is_tuning = optuna_config.get("tune", False)
+
+    if is_tuning and restore_path:
+        base_dir = Path(restore_path)
+        if not base_dir.exists():
+            raise FileNotFoundError(f"Restore path does not exist: {base_dir}")
+        logger.info(f"Restoring Optuna search from: {base_dir}")
     else:
-        checkpoints_dir = base_dir / "checkpoints"
-        logs_dir = base_dir / "logs"
+        if is_tuning:
+            folder_name = f"optuna_search_{folder_name}"
+        base_dir = DirectoryPaths.TRAINING_DATA.value / folder_name
+        base_dir.mkdir(parents=True, exist_ok=True)
 
-        os.makedirs(checkpoints_dir, exist_ok=True)
-        os.makedirs(logs_dir, exist_ok=True)
+    # Create additional subdirectories if not tuning
+    if is_tuning:
+        return DirectoryStructure(
+            base_dir=base_dir, checkpoints_dir=None, logs_dir=None
+        )
 
-    return base_dir, checkpoints_dir, logs_dir
+    return create_directory_structure(
+        base_dir, [Subdirectory.CHECKPOINTS, Subdirectory.LOGS]
+    )
+
+
+def setup_directories_optuna(base_dir: Path, number_trial: int) -> DirectoryStructure:
+    """
+    Sets up directories for an Optuna trial.
+
+    Args:
+        base_dir (Path): Base directory for Optuna experiments.
+        number_trial (int): Trial number.
+
+    Returns:
+        DirectoryStructure: Struct containing paths for the trial's base, checkpoints, and logs directories.
+    """
+    trial_dir = base_dir / f"trial_{number_trial}"
+    return create_directory_structure(
+        trial_dir, [Subdirectory.CHECKPOINTS, Subdirectory.LOGS]
+    )
 
 
 def get_relative_path(*sub_dirs: str) -> Path:
@@ -205,3 +294,78 @@ def update_checkpoint_saver_dirpath(
             break
     else:
         logger.info("PeriodicCheckpointSaver was not found in the callbacks list.")
+
+
+def setup_logging_and_save_config(
+    config: Namespace,
+    base_dir: Path,
+    logs_dir: Optional[Path],
+    checkpoints_dir: Optional[Path],
+) -> Namespace:
+    """
+    Sets up logging, updates the checkpoint saver directory, and configures the TensorBoard logger.
+
+    Args:
+        config (Namespace): The configuration object containing training and logging parameters.
+        base_dir (Path): The base directory where training-related files will be stored.
+        logs_dir (Optional[Path]): The directory where log files will be saved. If None, logging is skipped.
+        checkpoints_dir (Optional[Path]): The directory where model checkpoints will be saved. If None, checkpoint
+                                          updates are skipped.
+
+    Returns:
+        Namespace: The modified configuration object.
+    """
+    if logs_dir is None or checkpoints_dir is None:
+        return config
+
+    # Set up logging for both file and console outputs
+    setup_logging(logs_dir)
+    config.trainer.default_root_dir = base_dir
+
+    # Update the directory path for PeriodicCheckpointSaver
+    update_checkpoint_saver_dirpath(config.trainer.callbacks, checkpoints_dir)
+
+    # Create an instance of TensorBoardLogger
+    tensorboard_logger = TensorBoardLogger(save_dir=logs_dir, name="training_logs")
+
+    # Attach the logger to the Trainer configuration
+    config.trainer.logger = tensorboard_logger
+
+    # Log hyperparameters for tracking in TensorBoard
+    tensorboard_logger.log_hyperparams(vars(config))
+
+    return config
+
+
+def save_yaml(data: dict, file_path: Path) -> None:
+    """
+    Saves data to a YAML file.
+
+    Args:
+        data (dict): Data to save.
+        file_path (Path): Path to the YAML file.
+    """
+    file_path.parent.mkdir(
+        parents=True, exist_ok=True
+    )  # Ensure parent directories exist
+    with file_path.open("w", encoding="utf-8") as file:
+        yaml.dump(data, file, default_flow_style=False)
+
+
+def load_yaml(file_path: Path) -> dict:
+    """
+    Loads data from a YAML file.
+
+    Args:
+        file_path (Path): Path to the YAML file.
+
+    Returns:
+        dict: Loaded data.
+
+    Raises:
+        FileNotFoundError: If the file does not exist.
+    """
+    if not file_path.exists():
+        raise FileNotFoundError(f"YAML file not found: {file_path}")
+    with file_path.open("r", encoding="utf-8") as file:
+        return yaml.safe_load(file) or {}
