@@ -360,10 +360,26 @@ class FolderImageDataset(ImageDatasetBase):
             return
 
         labels = dataset["label"]
+        if not labels:
+            logger.warning(
+                f"The {dataset_name} dataset is empty. No labels to process."
+            )
+            return
+
+        # Count labels and calculate total
         label_counts = Counter(labels)
         total = sum(label_counts.values())
+        sorted_label_counts = dict(sorted(label_counts.items()))
 
+        # Log the class distribution
         logger.info(f"Class distribution in the {dataset_name} dataset:")
-        for label, count in label_counts.items():
+        distribution_list = []
+        for label, count in sorted_label_counts.items():
             percentage = (count / total) * 100
+            distribution_list.append(round(count / total, 4))
             logger.info(f"  Class {label}: {count} samples ({percentage:.2f}%)")
+
+        # Log the normalized distribution list
+        logger.info(
+            f"Normalized class distribution in {dataset_name}: {distribution_list}"
+        )

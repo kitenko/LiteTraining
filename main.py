@@ -57,7 +57,7 @@ def handle_cli_process(cli: CustomLightningCLI) -> None:
         run_predict(cli, ckpt_path)
     elif cli.config.get("test", False):
         run_test(cli, ckpt_path)
-    elif cli.config.get("validate", False):
+    elif cli.config.get("val", False):
         run_validation(cli, ckpt_path)
     else:
         run_training(cli, ckpt_path)
@@ -129,7 +129,8 @@ def run_training(cli: CustomLightningCLI, ckpt_path: Optional[str]) -> None:
         ckpt_path (Optional[str]): Path to the checkpoint file to load for training, if available.
     """
     if cli.config.experiment.get("only_weights_load", False):
-        load_checkpoint(ckpt_path, cli.model)
+        strict = cli.config.experiment.get("strict_weights", False)
+        load_checkpoint(ckpt_path, cli.model, strict)
         cli.trainer.fit(cli.model, cli.datamodule)
     else:
         cli.trainer.fit(cli.model, cli.datamodule, ckpt_path=ckpt_path)

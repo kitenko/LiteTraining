@@ -47,23 +47,28 @@ def instantiate_classes_from_config(configs: List[Namespace]):
     return instances
 
 
-def load_checkpoint(ckpt_path: Optional[str], model: Module) -> None:
+def load_checkpoint(
+    ckpt_path: Optional[str], model: Module, strict: bool = True
+) -> None:
     """
     Loads model weights from a checkpoint file into the model instance, omitting any optimizer state.
 
     Args:
         ckpt_path (Optional[str]): Path to the checkpoint file. If None, no weights are loaded.
         model (torch.nn.Module): The model instance into which weights will be loaded.
+        strict (bool, optional): If True, ensures all keys in the state_dict match the model's keys.
+                                 If False, ignores missing or mismatched keys. Default is True.
 
     Returns:
         None: The function updates the model weights in place.
 
     Raises:
         FileNotFoundError: If the checkpoint path is specified but the file does not exist.
-        RuntimeError: If there is an issue with loading the weights into the model (e.g., size mismatch).
+        RuntimeError: If there is an issue with loading the weights into the model (e.g., size mismatch)
+                      and strict=True.
     """
     if ckpt_path:
+        # Load the checkpoint from the specified path
         checkpoint = torch.load(ckpt_path, map_location=torch.device("cpu"))
-        model.load_state_dict(
-            checkpoint.get("state_dict", checkpoint)
-        )  # Load model weights only
+        # Load state_dict into the model
+        model.load_state_dict(checkpoint.get("state_dict", checkpoint), strict=strict)

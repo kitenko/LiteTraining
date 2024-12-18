@@ -70,6 +70,10 @@ class PeriodicCheckpointSaver(ModelCheckpoint):
 
     def _save_periodic_checkpoint(self, trainer: pl.Trainer) -> None:
         """Saves the model checkpoint periodically based on the specified interval."""
+
+        if not isinstance(self.dirpath, str) or not self.dirpath:
+            raise ValueError("The directory path (dirpath) must be a non-empty string.")
+
         filepath = os.path.join(
             self.dirpath, f"{self.checkpoint_prefix}={trainer.current_epoch:02d}.ckpt"
         )
@@ -150,6 +154,20 @@ class MetricsLoggerCallback(Callback):
             device,
         )
 
+    def on_validation_start(
+        self, trainer: pl.Trainer, pl_module: pl.LightningModule
+    ) -> None:
+        """
+        Initializes metrics module for testing on the model's device.
+        """
+        device = pl_module.device
+        self.val_metrics = MetricsModule(
+            device, metrics=self._copy_metrics(self.metrics)
+        )
+        self.logger.info(
+            "Initialized test metric module on device %s with metrics", device
+        )
+
     def on_test_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
         """
         Initializes metrics module for testing on the model's device.
@@ -159,7 +177,7 @@ class MetricsLoggerCallback(Callback):
             device, metrics=self._copy_metrics(self.metrics)
         )
         self.logger.info(
-            "Initialized test metric module on device %s with metrics %s", device
+            "Initialized test metric module on device %s with metrics", device
         )
 
     def _update_metrics(
@@ -233,6 +251,11 @@ class MetricsLoggerCallback(Callback):
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
     ):
         """Called at the end of each validation epoch to log validation metrics."""
+        # if trainer.is_global_zero:
+        #     confusion_matrix = self.val_metrics.metrics.get("confusion_matrix")
+        #     if confusion_matrix is not None:
+        #         confusion_matrix.plot()
+        #         del self.val_metrics.metrics["confusion_matrix"]
         self._log_metrics(self.val_metrics, "validation", pl_module)
 
     def on_test_batch_end(

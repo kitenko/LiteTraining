@@ -35,6 +35,8 @@ class CustomLightningCLI(LightningCLI):
     and logs, sets up logging, and saves the training configuration to a YAML file.
     """
 
+    config: Namespace
+
     def add_arguments_to_parser(self, parser: LightningArgumentParser):
         """
         Adds additional arguments for Optuna configuration and custom experiment options to the argument parser.
@@ -56,6 +58,13 @@ class CustomLightningCLI(LightningCLI):
             type=bool,
             default=False,
             help="Flag to load only the model weights, without restoring optimizer state. Defaults to False.",
+        )
+
+        parser.add_argument(
+            "--experiment.strict_weights",
+            type=bool,
+            default=True,
+            help="If True, ensures all keys in the state_dict match the model's keys.",
         )
 
         parser.add_argument(

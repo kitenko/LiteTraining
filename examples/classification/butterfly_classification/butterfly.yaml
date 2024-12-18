@@ -1,0 +1,299 @@
+# Configuration file for training a model using PyTorch Lightning.
+# Contains model, data, training, and logging configurations.
+
+# optuna:
+#   tune: True
+#   n_trials: 100
+#   direction: maximize
+#   metric: validation_f1_score
+#   restore_search: null
+#   search_spaces:
+#     # RandomCrop
+#     data.init_args.augmentations[0].init_args.p:
+#       distribution: uniform
+#       low: 0.1
+#       high: 1.0
+#     data.init_args.augmentations[0].init_args.height:
+#       distribution: int
+#       low: 50
+#       high: 100
+#     data.init_args.augmentations[0].init_args.width:
+#       distribution: int
+#       low: 50
+#       high: 100
+
+#     # HorizontalFlip
+#     data.init_args.augmentations[1].init_args.p:
+#       distribution: uniform
+#       low: 0.1
+#       high: 1.0
+    
+#     # VerticalFlip
+#     data.init_args.augmentations[2].init_args.p:
+#       distribution: uniform
+#       low: 0.1
+#       high: 1.0
+
+#     # Rotate
+#     data.init_args.augmentations[3].init_args.p:
+#       distribution: uniform
+#       low: 0.1
+#       high: 1.0
+
+#     # RandomBrightnessContrast
+#     data.init_args.augmentations[4].init_args.p:
+#       distribution: uniform
+#       low: 0.1
+#       high: 1.0
+#     data.init_args.augmentations[4].init_args.brightness_limit:
+#       distribution: uniform
+#       low: 0.2
+#       high: 0.4
+#     data.init_args.augmentations[4].init_args.contrast_limit:
+#       distribution: uniform
+#       low: 0.2
+#       high: 0.4
+
+#     # GaussNoise
+#     data.init_args.augmentations[5].init_args.p:
+#       distribution: uniform
+#       low: 0.1
+#       high: 1.0
+
+#     # GaussianBlur
+#     data.init_args.augmentations[6].init_args.p:
+#       distribution: uniform
+#       low: 0.1
+#       high: 1.0
+
+#     # MotionBlur
+#     data.init_args.augmentations[7].init_args.p:
+#       distribution: uniform
+#       low: 0.1
+#       high: 1.0    
+
+#     # ElasticTransform
+#     data.init_args.augmentations[8].init_args.p:
+#       distribution: uniform
+#       low: 0.1
+#       high: 1.0
+#     data.init_args.augmentations[8].init_args.alpha:
+#       distribution: uniform
+#       low: 1.0
+#       high: 4.0
+#     data.init_args.augmentations[8].init_args.sigma:
+#       distribution: uniform
+#       low: 30.0
+#       high: 80.0
+
+#     # GridDistortion
+#     data.init_args.augmentations[9].init_args.p:
+#       distribution: uniform
+#       low: 0.1
+#       high: 1.0
+
+seed_everything: 42  # Seed for reproducibility across experiments
+ckpt_path: /app/training_data/b7_full_model_augmen/checkpoints/epoch=41-validation_f1_score=0.9303.ckpt   # Checkpoint path (set to null to start from scratch)
+
+# Anchor definitions for num_classes and image dimensions
+num_classes: &num_classes 75
+image_height: &image_height 224
+image_width: &image_width 224
+
+experiment:
+  custom_folder_name: b7_full_model_augmen # Custom folder name for storing experiment data
+  only_weights_load: false           # Flag to load only model weights from a checkpoint
+  strict_weights: false
+  default_names:
+    - custom_folder_name
+    - model_name
+    - num_classes
+    - optimizer
+    - lr
+    - image_height
+    - image_width
+    - freeze_encoder
+
+model:
+  class_path: models.image_classification_module.ImageClassificationModule
+  init_args:
+    model:
+      class_path: models.models.ImageClassification  # Path to the model class
+      init_args:
+        model_name: google/efficientnet-b7            # Pre-trained model name
+        num_classes: *num_classes                     # Number of classes for output layer
+        freeze_encoder: false                          # Freeze encoder layers for transfer learning
+        optimizer_config:
+          scheduler: ReduceLROnPlateau
+          patience: 20
+          gamma: 0.5
+          lr:  0.0003
+
+    # Loss function configuration
+    loss_fn:
+      class_path: losses.focal_loss.WeightedFocalLoss   # Loss function class path
+      init_args:
+        weight_file: /app/data/weights.json
+        gamma: 2
+
+
+# Common transformations for normalization and resizing
+common_transforms: &common_transforms
+  - class_path: dataset_modules.augmentations.Normalize
+    init_args:
+      mean: [0.485, 0.456, 0.406]                   # Mean for each RGB channel
+      std: [0.478, 0.473, 0.474]                    # Standard deviation for each RGB channel
+      max_pixel_value: 255.0                        # Max pixel value for normalization
+
+  - class_path: albumentations.pytorch.transforms.ToTensorV2
+    init_args: {}                                   # Convert image to PyTorch tensor
+
+data:
+  class_path: dataset_modules.image_data_module.ImageDataModule
+  init_args:
+    num_workers: 8                                    # Number of data loading workers
+    batch_size: 16                                    # Batch size for training
+    create_dataset: false                             # If true, will create the dataset from scratch
+
+    dataset_classes:
+      - class_path: dataset_modules.folder_image_dataset.FolderImageDataset
+        init_args:
+          train_val_dir: "data/archive/train_folder"      # Directory for training and validation data
+          validation_split: 0.2
+
+    normalizations: *common_transforms                # Reuse normalizations defined in common_transforms
+
+    # Augmentations pipeline with additional transformations
+    augmentations: 
+      - class_path: dataset_modules.augmentations.RandomCrop
+        init_args:
+          height: 71
+          width: 62
+          p: 0.29
+
+      - class_path: dataset_modules.augmentations.HorizontalFlip
+        init_args:
+          p: 0.18
+
+      - class_path: dataset_modules.augmentations.VerticalFlip
+        init_args:
+          p: 0.13
+
+      - class_path: dataset_modules.augmentations.Rotate
+        init_args:
+          limit: 90
+          interpolation: 1
+          border_mode: 0
+          p: 0.25
+
+      - class_path: dataset_modules.augmentations.RandomBrightnessContrast
+        init_args:
+          brightness_limit: 0.51
+          contrast_limit: 0.52
+          p: 0.25
+
+      - class_path: dataset_modules.augmentations.GaussNoise
+        init_args:
+          p: 0.76
+
+      - class_path: dataset_modules.augmentations.GaussianBlur
+        init_args:
+          blur_limit: [3, 7]
+          p: 0.18
+
+      - class_path: dataset_modules.augmentations.MotionBlur
+        init_args:
+          blur_limit: 7
+          p: 0.41
+
+      - class_path: dataset_modules.augmentations.ElasticTransform
+        init_args:
+          alpha: 2.29
+          sigma: 35.69
+          p: 0.26
+
+      - class_path: dataset_modules.augmentations.GridDistortion
+        init_args:
+          num_steps: 5
+          distort_limit: 0.3
+          p: 0.5
+
+      - class_path: dataset_modules.augmentations.Resize
+        init_args:
+          height: *image_height
+          width: *image_width
+
+      - class_path: dataset_modules.augmentations.Normalize
+        init_args:
+          mean: [0.485, 0.456, 0.406]
+          std: [0.478, 0.473, 0.474]
+          max_pixel_value: 255.0
+
+      - class_path: albumentations.pytorch.transforms.ToTensorV2
+        init_args: {}
+
+
+      
+# Common metric arguments for consistent metric setup
+metric_common_args: &metric_common_args
+  task: multiclass                                  # Metric type for multiclass classification
+  average: "macro"                                  # Average type for metric calculation
+  num_classes: *num_classes                         # Total number of classes
+
+trainer:
+  accelerator: "gpu"                                # Hardware accelerator to use
+  devices: [0]                                      # GPU device ID(s) to use
+  max_epochs: 500                                    # Maximum number of training epochs
+  precision: 16-mixed                               # Mixed precision training (16-bit)
+  limit_train_batches: 1.0                         # Fraction of training batches to use per epoch
+  limit_val_batches: 1.0                            # Fraction of validation batches to use per epoch
+
+  # Callback configurations
+  callbacks:
+    # Periodic checkpoint saving configuration
+    - class_path: toolkit.callbacks.PeriodicCheckpointSaver
+      init_args:
+        filename: "{epoch:02d}-{validation_f1_score:.4f}"  # Filename format for checkpoints
+        monitor: "validation_f1_score"              # Metric to monitor for saving
+        mode: "max"                                 # Maximize the monitored metric
+        save_top_k: 1                               # Number of top checkpoints to keep
+        verbose: true                               # Log checkpoint saving
+        every_n_epochs: 0
+
+    # Metrics logger configuration for multiple metrics
+    - class_path: toolkit.callbacks.MetricsLoggerCallback
+      init_args:
+        metrics:
+          accuracy:
+            class_path: torchmetrics.Accuracy
+            init_args:
+              <<: *metric_common_args               # Reuse common metric arguments
+
+          precision:
+            class_path: torchmetrics.Precision
+            init_args:
+              <<: *metric_common_args
+
+          recall:
+            class_path: torchmetrics.Recall
+            init_args:
+              <<: *metric_common_args
+
+          f1_score:
+            class_path: torchmetrics.F1Score
+            init_args:
+              <<: *metric_common_args
+
+    # Progress bar for training
+    - class_path: pytorch_lightning.callbacks.TQDMProgressBar
+      init_args:
+        refresh_rate: 5                             # Update rate for progress bar
+
+    # Early stopping configuration
+    - class_path: pytorch_lightning.callbacks.EarlyStopping
+      init_args:
+        monitor: "validation_f1_score"              # Metric to monitor for stopping
+        mode: "max"                                 # Stop when maximizing the metric
+        patience: 40                                 # Number of epochs with no improvement before stopping
+        verbose: true                               # Log early stopping
+ 
