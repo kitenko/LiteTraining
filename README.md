@@ -13,6 +13,8 @@ This document provides an overview of the configuration used to train an image c
   - [5. Data Augmentations](#5-data-augmentations)
   - [6. Trainer Settings](#6-trainer-settings)
   - [7. Callbacks](#7-callbacks)
+  - [8. Metric Common Args](#8-metric-common-args)
+  - [9. Optuna Parameters](#9-optuna-parameters)
 - [Using Optuna for Hyperparameter Optimization](#using-optuna-for-hyperparameter-optimization)
 - [How to Run the Training Script](#how-to-run-the-training-script)
 - [Additional Notes](#additional-notes)
@@ -31,25 +33,24 @@ The training script is designed to run in a Python environment with all necessar
 
 ### Running the Training Script
 
-You must specify the configuration file path using the --config argument:
+You must specify the configuration file path using the `--config` argument:
 
 ```bash
 python main.py --config path/to/your_config.yaml
 ```
 
 ### Command-Line Arguments
-
 The training script accepts several command-line arguments:
+
 - `--config`: Path to the configuration YAML file.
 - `--test`: Runs the test phase without training the model.
 - `--val`: Runs the validation phase without training the model.
 - `--predict`: Runs the prediction phase without training the model.
 - `--ckpt_path`: Path to a model checkpoint file for testing or validation phases.
 
-**Note**: If neither `--test`, `--val`, nor `--predict` is specified, the script will default to the training phase.
+Note: If neither `--test`, `--val`, nor `--predict` is specified, the script will default to the training phase.
 
 ## Configuration Overview
-
 The training process is highly configurable via a YAML configuration file. Below is an overview of the main sections in `config.yaml` and what they control.
 
 ### 1. General Configuration
@@ -59,21 +60,28 @@ The training process is highly configurable via a YAML configuration file. Below
 ### 2. Experiment Settings
 - `custom_folder_name`: Custom name for the experiment folder.
 - `only_weights_load`: If true, only the model weights are loaded from the checkpoint, not the optimizer state.
+- `strict_weights`: When loading a checkpoint, determines if the model should fail if state dict keys don’t match exactly (`true`) or just ignore missing keys (`false`).
+- `default_names`: A list of parameters that help form default names for experiment logging directories and checkpoints.
 
 ### 3. Model Configuration
 - `model_name`: Name of the pre-trained model, only models available on Hugging Face are supported.
-- `num_classes`: Number of output classes (e.g., `42` for 42 characters).
-- `freeze_encoder (Union[bool, float])`: Freeze encoder layers; if set to a float, it specifies the fraction of layers to freeze.
-- `optimizer_config`: Specifies the optimizer and its parameters. The optimizer can be any of the three supported types; just provide the name and required parameters.
+- `num_classes`: Number of output classes.
+- `freeze_encoder`: Freeze encoder layers for transfer learning. Can be a boolean or a float indicating the fraction of layers to freeze.
+- `optimizer_config`: Specifies the optimizer and its parameters. The optimizer can be configured with scheduler type, patience, learning rate, etc.
 
 ### 4. Data Configuration
 - `num_workers`: Number of subprocesses for data loading.
 - `batch_size`: Number of samples per batch.
-- `create_dataset`: This is set to false to avoid caching, which allows for dynamic dataset creation each time.
-- `dataset_classes`: Specifies the dataset class and directories for training, validation, and prediction images. Custom preprocessing functions can be added as long as they support the `augmentations` interface.
+- `create_dataset`: This is set to false to avoid caching, which allows for dynamic dataset creation each time
+- `dataset_classes`: Specifies the dataset class and directories for training, validation, and prediction data.
 
 ### 5. Data Augmentations
-Data augmentations are applied using the Albumentations library. Common transformations include resizing, normalization, and converting to tensor format. You can customize augmentations as needed, following the `augmentations` interface.
+Data augmentations are applied using the Albumentations library and custom augmentation classes. Common transformations include normalization, resizing, flipping, rotation, brightness/contrast adjustments, and various blur or noise augmentations.
+
+You can customize the augmentation pipeline in the augmentations section of the config. Each augmentation is defined by:
+
+- `class_path`: The Python path to the augmentation class.
+- `init_args`: Arguments passed to the augmentation class.
 
 ### 6. Trainer Settings
 Trainer settings control the training loop's behavior, such as hardware settings and the number of epochs. For detailed parameter options, see the [PyTorch Lightning Trainer documentation](https://pytorch-lightning.readthedocs.io/en/stable/common/trainer.html).
@@ -88,47 +96,55 @@ Trainer settings control the training loop's behavior, such as hardware settings
 ### 7. Callbacks
 Callbacks are used to perform actions at specific points in training, such as saving checkpoints or early stopping. Each callback can have various parameters influencing its behavior:
 
-- **Checkpoint Saver**: Saves model checkpoints based on validation metrics. Parameters:
-  - `dirpath`: Directory for saving checkpoints.
-  - `filename`: Name format for checkpoint files.
-  - `monitor`: Metric to monitor (e.g., validation F1 score).
-  - `mode`: Determines if a higher or lower value is better for the monitored metric.
-  - `save_top_k`: Number of top checkpoints to save.
-  - `every_n_epochs`: Interval in epochs to save checkpoints.
+- **Checkpoint Saver**: Saves model checkpoints based on monitored metrics.
+- **Metrics Logger**: Logs training metrics like accuracy, precision, recall, and F1 score.
+- **Progress Bar**: Displays a training progress bar.
+- **Early Stopping**: Stops training if there's no improvement in the monitored metric for a specified patience.
 
-- **Metrics Logger**: Logs training metrics like accuracy, precision, recall, and F1 score. Parameters:
-  - `metrics`: Defines which metrics to track (e.g., `torchmetrics.Accuracy` for accuracy).
+### 8. Metric Common Args
+`metric_common_args` is a block of common arguments for metrics:
 
-- **Progress Bar**: Displays a progress bar during training. Parameters:
-  - `refresh_rate`: Frequency of progress bar updates.
+```yaml
+metric_common_args: &metric_common_args
+  task: multiclass
+  average: "macro"
+  num_classes: *num_classes
+```
 
-- **Early Stopping**: Stops training if the monitored metric does not improve for a specified patience period. Parameters:
-  - `monitor`: Metric to track for early stopping.
-  - `patience`: Number of epochs without improvement before stopping.
-  - `verbose`: If true, prints a message when early stopping is triggered.
+- `task`: The type of task (e.g., multiclass).
+- `average`: Type of averaging for metrics (macro, micro, weighted).
+- `num_classes`: The number of classes (linked to the `num_classes` parameter).
+
+These arguments can be reused by multiple metrics to maintain consistency.
+
+### 9. Optuna Parameters
+Optuna enables automatic hyperparameter tuning with configurable parameters:
+
+- `tune`: Set to `True` to enable Optuna.
+- `n_trials`: Number of optimization trials.
+- `direction`: `maximize` or `minimize` the specified metric.
+- `metric`: Metric to optimize (e.g., validation_f1_score).
+- `restore_search`: If not `null`, specifies a name or path to restore a previously started Optuna study.
+- `search_spaces`: Defines parameter ranges and distributions for optimization:
+  - `distribution`: The type of distribution (e.g., uniform, int).
+  - `low`, `high`: Bounds for the sampled values.
 
 ## Using Optuna for Hyperparameter Optimization
-
-Optuna enables automatic hyperparameter tuning. To use Optuna, add the following to your configuration:
+To use Optuna, add the following to your configuration:
 
 ```yaml
 optuna:
   tune: True
-  n_trials: 50
+  n_trials: 100
   direction: maximize
   metric: validation_f1_score
+  restore_search: null
   search_spaces:
-    model.init_args.optimizer_config.lr:
+    data.init_args.augmentations[0].init_args.p:
       distribution: uniform
-      low: 1e-5
-      high: 1e-3
+      low: 0.1
+      high: 1.0
 ```
-
-- `tune`: Set to True to enable hyperparameter tuning.
-- `n_trials`: Number of optimization trials.
-- `direction`: Optimization direction (minimize or maximize).
-- `metric`: Metric to optimize.
-- `search_spaces`: Defines the hyperparameter ranges.
 
 ## How to Run the Training Script
 
@@ -183,11 +199,10 @@ python main.py --predict --ckpt_path path/to/checkpoint.ckpt
 Predictions are saved as specified in your script (e.g., to a CSV file).
 
 ## Additional Notes
-
-- **Layer Freezing**: `freeze_encoder` allows you to freeze specific layers during training. A float value represents the fraction of layers to freeze.
-- **Optimizer Choice**: Configure optimizer settings under `optimizer_config`. The optimizer can be one of three types; only the name and necessary parameters are required.
-- **Data Augmentation**: Defined using the Albumentations library. Custom augmentations can be added if they adhere to the `augmentations` interface.
-- **Mixed Precision Training**: Set `precision: 16` for faster training and reduced memory usage.
-- **Reproducibility**: Use `seed_everything` for consistent results across runs.
+- **Layer Freezing**: Use `freeze_encoder` to freeze encoder layers in a pretrained model. A float value represents the fraction of layers to freeze, while true/false indicates a simple on/off.
+- **Optimizer Choice**: Configure under `optimizer_config`. You can specify optimizer (e.g., Adam, SGD) and learning rate schedulers.
+- **Augmentations**: Extend or modify the augmentation pipeline in `augmentations`. Custom augmentations must follow the defined interface.
+- **Mixed Precision Training**: Set `precision: 16-mixed` for faster training and reduced memory usage.
+- **Reproducibility**: Use `seed_everything` to ensure consistent results across runs.
 
 By following this guide, you can set up and train your image classification model using the provided configuration. Adjust parameters to suit your specific use case.
