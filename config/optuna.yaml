@@ -236,3 +236,4 @@ trainer:
         mode: "max"                                 # Stop when maximizing the metric
         patience: 10                                # Number of epochs with no improvement before stopping
         verbose: true                               # Log early stopping
+        check_on_train_epoch_end: false

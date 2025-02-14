@@ -1,5 +1,4 @@
-"""
-This module provides a custom implementation of a LightningCLI extension for managing
+"""This module provides a custom implementation of a LightningCLI extension for managing
 checkpoints, logging, and configuration handling in PyTorch Lightning training.
 
 Features:
@@ -9,26 +8,25 @@ Features:
 """
 
 import logging
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 
 from jsonargparse import Namespace
 from pytorch_lightning import seed_everything
-from pytorch_lightning.cli import LightningCLI, LightningArgumentParser
+from pytorch_lightning.cli import LightningArgumentParser, LightningCLI
 
-from toolkit.optuna_tuner import OptunaTuner, OptunaConfig
 from toolkit.folder_manager import (
     find_keys_recursive,
     setup_directories,
     setup_logging_and_save_config,
 )
+from toolkit.optuna_tuner import OptunaConfig, OptunaTuner
 
 logger = logging.getLogger(__name__)
 logger.propagate = True  # Enable logging handler propagation
 
 
 class CustomLightningCLI(LightningCLI):
-    """
-    A custom extension of PyTorch LightningCLI that introduces additional functionality
+    """A custom extension of PyTorch LightningCLI that introduces additional functionality
     for managing checkpoint directories, logging, and configuration before training starts.
 
     This class dynamically configures directories for storing training data, checkpoints,
@@ -38,11 +36,11 @@ class CustomLightningCLI(LightningCLI):
     config: Namespace
 
     def add_arguments_to_parser(self, parser: LightningArgumentParser):
-        """
-        Adds additional arguments for Optuna configuration and custom experiment options to the argument parser.
+        """Adds additional arguments for Optuna configuration and custom experiment options to the argument parser.
 
         Args:
             parser (LightningArgumentParser): The argument parser to add arguments to.
+
         """
         parser.add_class_arguments(OptunaConfig, nested_key="optuna")
 
@@ -137,30 +135,27 @@ class CustomLightningCLI(LightningCLI):
         )
 
     def run_optuna(self):
-        """
-        Starts the Optuna hyperparameter optimization process by initializing an OptunaTuner
+        """Starts the Optuna hyperparameter optimization process by initializing an OptunaTuner
         and running the optimization using the defined model, data module, and trainer classes.
         """
         if not self.base_dir:
             raise ValueError(
                 "The base_dir attribute is not set or is an empty string. Ensure that "
                 "before running Optuna, the setup_directories method has been called, "
-                "and base_dir is properly initialized."
+                "and base_dir is properly initialized.",
             )
 
         optuna_tuner = OptunaTuner(self.config, self.base_dir)
         optuna_tuner.run_optimization()
 
     def before_instantiate_classes(self):
-        """
-        Configures directories, sets seeds, and saves configurations before instantiating classes.
-        """
+        """Configures directories, sets seeds, and saves configurations before instantiating classes."""
         config: Namespace = self.config
         self.set_seed(config)
 
         if self.is_test_or_val_mode(config):
             logger.info(
-                "Running in test or validation mode - skipping directory setup."
+                "Running in test or validation mode - skipping directory setup.",
             )
             return
 
@@ -182,10 +177,11 @@ class CustomLightningCLI(LightningCLI):
         return config.get("test", False) or config.get("val", False)
 
     def extract_experiment_values(
-        self, config: Namespace, keys_to_find: List[str]
+        self,
+        config: Namespace,
+        keys_to_find: List[str],
     ) -> Dict[str, Any]:
-        """
-        Retrieves specific values from the given configuration based on provided keys.
+        """Retrieves specific values from the given configuration based on provided keys.
 
         Args:
             config (Namespace): The configuration object to search.
@@ -196,6 +192,7 @@ class CustomLightningCLI(LightningCLI):
 
         Raises:
             KeyError: If any of the keys are missing in the configuration.
+
         """
         try:
             return find_keys_recursive(config, keys_to_find)

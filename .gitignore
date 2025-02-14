@@ -147,3 +147,7 @@ cython_debug/
 
 # PyCharm (JetBrains specific templates recommended)
 #.idea/
+
+# pixi environments
+.pixi
+*.egg-info

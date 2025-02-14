@@ -93,7 +93,7 @@
 #       high: 1.0
 
 seed_everything: 42  # Seed for reproducibility across experiments
-ckpt_path: /app/training_data/b7_full_model_augmen/checkpoints/epoch=41-validation_f1_score=0.9303.ckpt   # Checkpoint path (set to null to start from scratch)
+ckpt_path: null  # Checkpoint path (set to null to start from scratch)
 
 # Anchor definitions for num_classes and image dimensions
 num_classes: &num_classes 75
@@ -101,7 +101,7 @@ image_height: &image_height 224
 image_width: &image_width 224
 
 experiment:
-  custom_folder_name: b7_full_model_augmen # Custom folder name for storing experiment data
+  custom_folder_name: test # Custom folder name for storing experiment data
   only_weights_load: false           # Flag to load only model weights from a checkpoint
   strict_weights: false
   default_names:
@@ -247,6 +247,7 @@ trainer:
   precision: 16-mixed                               # Mixed precision training (16-bit)
   limit_train_batches: 1.0                         # Fraction of training batches to use per epoch
   limit_val_batches: 1.0                            # Fraction of validation batches to use per epoch
+  fast_dev_run: false
 
   # Callback configurations
   callbacks:
@@ -296,4 +297,5 @@ trainer:
         mode: "max"                                 # Stop when maximizing the metric
         patience: 40                                 # Number of epochs with no improvement before stopping
         verbose: true                               # Log early stopping
+        check_on_train_epoch_end: false
  
