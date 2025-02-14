@@ -1,3 +1,7 @@
+# 🤔 Why Pixi?
+
+Pixi is a powerful environment manager and packaging solution for Python that simplifies environment creation, dependency management, and environment activation. By using conda or PyPI-based dependencies, Pixi provides a consistent and flexible approach for development, testing, and production workflows. In short, it helps keep your project clean, reproducible, and easy to maintain. Additionally, Pixi automatically generates a lock file that ensures you can precisely reproduce your environment across different systems.
+
 # 🚀 Installing Pixi
 
 To install Pixi, run the following command:
@@ -302,6 +306,400 @@ There are several ways to activate a Pixi environment, depending on your needs:
    ```sh
    pixi shell-hook
    ```
+
+# A Brief Overview of pixi.lock 🔒⚙️
+
+## What is it?
+**pixi.lock** is a file that captures the current environment and all installed packages (with their metadata). Think of it as a "lock" ensuring complete reproducibility.
+
+## Why do you need it?
+1. **Preserves State**: Lets you save and restore a working environment configuration.
+2. **Speeds Development**: Simplifies collaboration and makes switching between versions easier.
+3. **Flexibility**: Effortlessly roll back to a previous environment or transfer it to a new machine.
+
+## How is it generated and used?
+* **Automatically created** whenever you install a package (after the "solve" step).
+* **Do not edit it manually**: It's best to keep it under version control (e.g., Git) to track changes.
+* Whenever dependencies in `pixi.toml` or `pyproject.toml` change, the lock file automatically updates with commands like: `pixi install`, `pixi run`, `pixi shell`, `pixi add`, `pixi remove`, etc.
+
+## Additional Parameters
+* `--frozen` and `--locked`: These flags dictate how and whether `pixi.lock` updates during installation and usage.
+  - **`--frozen`**: If any discrepancies occur, it won't update the lock file, using it "as is" and installing exactly what is specified.
+  - **`--locked`**: Checks if the lock file is current; if it's out of sync with the manifest, the process stops, leaving `pixi.lock` unchanged.
+
+## Versioning
+* The **version** in `pixi.lock` shows compatibility with your current Pixi version.
+* Pixi is backward compatible with older lock files, but older versions of Pixi won't recognize lock files created by newer Pixi releases.
+
+## File Size
+* Can become fairly large because it stores extensive package metadata.
+* Still smaller than Docker images and faster to fetch than unnecessary packages.
+
+## Removal
+* `rm pixi.lock` simply removes the "lock". The environment will be re-solved the next time a command requires it.
+
+---
+
+Use **pixi.lock** if you need a fast, reliable way to recreate your environment at any moment ✨
+
+# System Requirements in pixi 🚀💻
+
+## General Purpose of System Requirements 🛠️🔑
+
+System requirements in **pixi** help you define the minimum specs (OS, kernel, glibc, CUDA, etc.) needed to install and run your project environment. If your machine doesn’t meet these specs, `pixi run` fails because the environment can’t function correctly.
+
+When **pixi** resolves dependencies, it combines:
+1. **Default requirements** (tied to the OS).
+2. **Custom requirements** (in `[system-requirements]`).
+
+This ensures the environment is compatible with your hardware. 🖥️
+
+---
+
+## Examples of Standard System Requirements 🏷️💡
+
+For instance, on Linux:
+
+```toml
+[system-requirements]
+linux = "4.18"
+libc = { family = "glibc", version = "2.28" }
+```
+
+- Linux kernel ≥ 4.18
+- glibc ≥ 2.28
+
+Other platforms (Windows, `osx-64`, `osx-arm64`) have their own defaults.
+
+---
+
+## Configuring System Requirements ⚙️📝
+
+### 1. Adapting to Specific Systems 💻✅
+
+If your system doesn’t match the defaults (e.g., older Linux kernel), override them:
+
+```toml
+[system-requirements]
+linux = "4.12.14"
+```
+
+### 2. Using CUDA 🔥🚀
+
+Specify CUDA in `[system-requirements]`:
+
+```toml
+[system-requirements]
+cuda = "12"
+```
+
+This tells **pixi** which CUDA version is available. If a package needs `__cuda >= 12`, pixi resolves it.
+
+### 3. Per-Environment Requirements 🌐🔧
+
+You can set requirements for features:
+
+```toml
+[feature.cuda.system-requirements]
+cuda = "12"
+
+[environments]
+cuda = ["cuda"]
+```
+
+This way, you can have separate environments for CUDA or CPU-only.
+
+### 4. Environment Variables 🌍🔀
+
+To override detected system requirements:
+
+- **`CONDA_OVERRIDE_CUDA`** sets the CUDA version.
+- **`CONDA_OVERRIDE_GLIBC`** sets the glibc version.
+- **`CONDA_OVERRIDE_OSX`** sets the macOS version.
+
+Use these if your system reports different values than you want.
+
+---
+
+## Integration with Project Settings 📦🤝
+
+In `[tool.pixi.system-requirements]`, define the required CUDA:
+
+```toml
+[tool.pixi.system-requirements]
+cuda = "12.4"
+```
+
+If you need to pin versions further:
+
+```toml
+[tool.pixi.dependencies]
+cuda-version = "==12.4"
+```
+
+---
+
+## Example Project Configuration 📝✨
+
+```toml
+[project]
+name = "app"
+requires-python = "== 3.11"
+version = "0.1.0"
+dependencies = ["cylimiter==0.4.2", "jsonargparse[signatures]", "tensorboard==2.19.0"]
+
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
+
+[tool.pixi.project]
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[tool.pixi.system-requirements]
+cuda = "12.4"
+
+[tool.pixi.pypi-dependencies]
+app = { path = ".", editable = true }
+
+[tool.pixi.tasks]
+
+[tool.pixi.environments]
+default = { solve-group = "default" }
+dev = { features = ["dev"], solve-group = "default" }
+
+[tool.pixi.dependencies]
+pytorch-gpu = "==2.5.1"
+torchvision = "==0.20.1"
+torchaudio = "==2.5.1"
+pytorch-lightning = "==2.5.0"
+optuna = "==4.2.0"
+datasets = "==3.2.0"
+transformers = "==4.48.3"
+python-dotenv = "==1.0.1"
+albumentations = "==2.0.4"
+scikit-learn = "==1.6.1"
+seaborn = "==0.13.2"
+
+[tool.pixi.feature.dev.dependencies]
+pylint = "==3.3.4"
+black = "==25.1.0"
+pre-commit = "==4.1.0"
+mypy = "==1.15.0"
+types-pyyaml = "==6.0.12.20241230"
+pytest-mock = "==3.14.0"
+```
+
+---
+
+## System Requirements Summary ✅🎉
+
+- **Purpose:** Ensure the project environment installs and runs correctly on the target system.
+- **Default vs. Custom:** Overwrite defaults in `[system-requirements]` if needed.
+- **CUDA Usage:** `cuda = "12.4"` in `[tool.pixi.system-requirements]` ensures the correct CUDA.
+- **Separate Environments:** Configure different features for CPU/GPU.
+- **Env Var Overrides:** `CONDA_OVERRIDE_CUDA` etc. let you override detection.
+
+These tools keep your project stable and compatible! 💯
+
+---
+
+## PyTorch Integration Guide 🔥🧠
+
+Learn how to integrate **PyTorch** with **pixi**:
+
+1. **Conda-forge** (Recommended)
+2. **PyPI** (via pixi’s uv integration)
+
+Pick whichever fits your needs.
+
+---
+
+### PyTorch & System Requirements 🏆
+
+PyTorch often requires CUDA. By setting `system-requirements.cuda = "12"`, you let **pixi** know your system supports CUDA 12. If that’s missing, you might get CPU-only installs.
+
+---
+
+## Installing from Conda-forge 🏗️
+
+Use the conda-forge channel for community-maintained builds. You can also specify a `cuda-version` to pin the CUDA version.
+
+### Minimal Example
+
+```toml
+[project]
+name = "pytorch-conda-forge"
+
+[tool.pixi.project]
+channels = ["https://prefix.dev/conda-forge"]
+platforms = ["linux-64"]
+
+[tool.pixi.system-requirements]
+cuda = "12.0"
+
+[tool.pixi.dependencies]
+pytorch-gpu = "*"
+```
+
+Or pin CUDA:
+
+```toml
+[tool.pixi.dependencies]
+pytorch-gpu = "*"
+cuda-version = "12.6"
+```
+
+### Splitting GPU and CPU Environments
+
+```toml
+[project]
+name = "pytorch-conda-forge"
+
+[tool.pixi.project]
+channels = ["https://prefix.dev/conda-forge"]
+platforms = ["linux-64"]
+
+[tool.pixi.feature.gpu.system-requirements]
+cuda = "12.0"
+
+[tool.pixi.feature.gpu.dependencies]
+cuda-version = "12.6"
+pytorch-gpu = "*"
+
+[tool.pixi.feature.cpu.dependencies]
+pytorch-cpu = "*"
+
+[tool.pixi.environments]
+cpu = ["cpu"]
+default = ["gpu"]
+```
+
+Run:
+
+```bash
+pixi run --environment cpu python -c "import torch; print(torch.cuda.is_available())"
+pixi run -e gpu python -c "import torch; print(torch.cuda.is_available())"
+```
+
+---
+
+## Installing from PyPI 🌐
+
+Using **uv** integration, you can get PyTorch from **PyPI**.
+
+### Don’t Mix Conda & PyPI if Dependent
+
+If a Conda package depends on `torch`, everything must come from Conda. If a PyPI package depends on `torch`, everything must come from PyPI. Mixing them can cause conflicts.
+
+### PyTorch Indexes 💾
+
+PyTorch uses custom indexes:
+- CPU: `https://download.pytorch.org/whl/cpu`
+- CUDA 11.8: `.../cu118`
+- CUDA 12.1: `.../cu121`
+- CUDA 12.4: `.../cu124`
+- ROCm6: `.../rocm6.2`
+
+#### Example
+
+```toml
+[project]
+name = "pytorch-pypi"
+requires-python = ">= 3.11,<3.13"
+
+[tool.pixi.project]
+channels = ["https://prefix.dev/conda-forge"]
+platforms = ["osx-arm64", "linux-64", "win-64"]
+
+[tool.pixi.pypi-dependencies]
+torch = { version = ">=2.5.1", index = "https://download.pytorch.org/whl/cu124" }
+torchvision = { version = ">=0.20.1", index = "https://download.pytorch.org/whl/cu124" }
+
+[tool.pixi.target.osx.pypi-dependencies]
+# For macOS, use CPU
+torch = { version = ">=2.5.1", index = "https://download.pytorch.org/whl/cpu" }
+torchvision = { version = ">=0.20.1", index = "https://download.pytorch.org/whl/cpu" }
+```
+
+### Multiple Environments for CPU/GPU
+
+```toml
+[project]
+name = "pytorch-pypi-envs"
+requires-python = ">= 3.11,<3.13"
+
+[tool.pixi.project]
+channels = ["https://prefix.dev/conda-forge"]
+platforms = ["linux-64", "win-64"]
+
+[tool.pixi.feature.gpu]
+system-requirements = { cuda = "12.0" }
+
+[tool.pixi.feature.gpu.pypi-dependencies]
+torch = { version = ">=2.5.1", index = "https://download.pytorch.org/whl/cu124" }
+torchvision = { version = ">=0.20.1", index = "https://download.pytorch.org/whl/cu124" }
+
+[tool.pixi.feature.cpu.pypi-dependencies]
+torch = { version = ">=2.5.1", index = "https://download.pytorch.org/whl/cpu" }
+torchvision = { version = ">=0.20.1", index = "https://download.pytorch.org/whl/cpu" }
+
+[tool.pixi.environments]
+gpu = { features = ["gpu"] }
+default = { features = ["cpu"] }
+```
+
+```bash
+pixi run --environment cpu python -c "import torch; print(torch.__version__); print(torch.cuda.is_available())"
+pixi run -e gpu python -c "import torch; print(torch.__version__); print(torch.cuda.is_available())"
+```
+
+### macOS + CUDA?
+
+macOS doesn’t support CUDA. If you’re on macOS but want to resolve CUDA wheels for another platform, you can hit resolution issues. For now, do that on a system that supports CUDA.
+
+---
+
+## Troubleshooting 🛠️
+
+### Test Installation ⚗️
+
+```bash
+pixi run python -c "import torch; print(torch.__version__); print(torch.cuda.is_available())"
+```
+
+### Check pixi’s Detected CUDA Info 🔎
+
+```bash
+pixi info
+```
+
+If `__cuda` is missing:
+
+```bash
+nvidia-smi
+```
+
+To check the CUDA toolkit:
+
+```bash
+pixi run nvcc --version
+```
+
+### Common Pitfalls 😅
+
+- **Mixing Channels**: Using multiple Conda channels can cause conflicts. Stick to conda-forge if you can.
+- **Mixing Conda & PyPI**: If PyTorch is from PyPI, anything that depends on `torch` must also come from PyPI.
+- **GPU Version Not Installing**:
+  - Make sure `system-requirements.cuda` is set.
+  - Pin your CUDA version if needed.
+- **ABI/Platform Mismatch**:
+  - Ensure your Python version (and OS) match the wheels.
+  - If you see errors about unsupported tags, choose another wheel or Python version.
+
+With the right settings, your PyTorch installation should work smoothly! 🔥🚀
+
+
 
 For more information, refer to the [official Pixi documentation](https://pixi.sh/latest).
 
