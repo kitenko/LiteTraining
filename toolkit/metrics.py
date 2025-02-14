@@ -1,23 +1,21 @@
-"""
-This module defines the `MetricsModule` class for managing and calculating
+"""This module defines the `MetricsModule` class for managing and calculating
 performance metrics during model training and evaluation, with a focus on
 classification metrics like Accuracy, Precision, Recall, and F1 Score.
 """
 
-from typing import Dict, List, Optional, Literal
+from typing import Dict, List, Literal, Optional
 
-import torch
+import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
+import torch
+from pytorch_lightning import LightningModule
 from torchmetrics import Metric
 from torchmetrics.functional import confusion_matrix
-import seaborn as sns
-import matplotlib.pyplot as plt
-from pytorch_lightning import LightningModule
 
 
 class MetricsModule:
-    """
-    A module for managing and logging multiple metrics during model training and evaluation.
+    """A module for managing and logging multiple metrics during model training and evaluation.
 
     This class provides an interface for managing standard classification metrics such as
     Accuracy, Precision, Recall, and F1 Score. It handles updating and logging these
@@ -25,35 +23,35 @@ class MetricsModule:
     """
 
     def __init__(self, device: torch.device, metrics: Dict[str, Metric]) -> None:
-        """
-        Initializes the MetricsModule with a set of metrics and assigns them to a specified device.
+        """Initializes the MetricsModule with a set of metrics and assigns them to a specified device.
 
         Args:
             device (torch.device): Device on which to run the metrics calculations (e.g., 'cpu' or 'cuda').
             metrics (Dict[str, Metric]): A dictionary of metric name keys and corresponding TorchMetrics `Metric`
             instances.
+
         """
         self.device = device
         self.metrics = {name: metric.to(device) for name, metric in metrics.items()}
 
     def update_metrics(self, preds: torch.Tensor, targets: torch.Tensor) -> None:
-        """
-        Updates each metric with the predictions and targets for the current batch.
+        """Updates each metric with the predictions and targets for the current batch.
 
         Args:
             preds (torch.Tensor): Model predictions for the current batch.
             targets (torch.Tensor): Ground truth labels for the current batch.
+
         """
         for metric in self.metrics.values():
             metric.update(preds, targets)
 
     def log_metrics(self, stage: str, pl_module: LightningModule) -> None:
-        """
-        Computes, logs, and resets the metrics at the end of an epoch.
+        """Computes, logs, and resets the metrics at the end of an epoch.
 
         Args:
             stage (str): The current phase (e.g., "train" or "val"), used to prefix metric names in logs.
             pl_module (LightningModule): The Lightning module instance to use for logging metrics.
+
         """
         for name, metric in self.metrics.items():
             # Compute the metric for all batches within the epoch
@@ -75,10 +73,10 @@ class MetricsModule:
 
 # pylint: disable=too-many-instance-attributes, too-many-arguments, too-many-positional-arguments, too-many-locals, arguments-differ, no-member
 class ConfusionMatrixLogger(Metric):
-    """
-    A class to log and visualize a confusion matrix for multi-class classification tasks.
+    """A class to log and visualize a confusion matrix for multi-class classification tasks.
 
-    Parameters:
+    Parameters
+    ----------
         num_classes (int): Number of classes in the classification task.
                            Determines the size of the confusion matrix.
         task (str): Task type for the confusion matrix calculation. Supported values:
@@ -116,6 +114,7 @@ class ConfusionMatrixLogger(Metric):
                               Affects readability for long class names. Defaults to 45.
         dpi (int): Resolution of the saved plot in dots per inch (DPI).
                    Only affects saved images. Defaults to 300.
+
     """
 
     def __init__(
@@ -171,34 +170,37 @@ class ConfusionMatrixLogger(Metric):
         )
 
     def update(self, preds: torch.Tensor, targets: torch.Tensor) -> None:
-        """
-        Update the confusion matrix with new predictions and targets.
+        """Update the confusion matrix with new predictions and targets.
 
         Args:
             preds (torch.Tensor): Model predictions (logits or class indices) for the current batch.
             targets (torch.Tensor): Ground truth labels for the current batch.
+
         """
         cm = confusion_matrix(
-            preds, targets, task=self.task, num_classes=self.num_classes
+            preds,
+            targets,
+            task=self.task,
+            num_classes=self.num_classes,
         )
         self.conf_matrix += cm
 
     def compute(self) -> torch.Tensor:
-        """
-        Compute and return the accumulated confusion matrix.
+        """Compute and return the accumulated confusion matrix.
 
         Returns:
             torch.Tensor: The accumulated confusion matrix as a 2D tensor.
+
         """
         self.plot(self.conf_matrix)
         return 1  # type: ignore
 
     def plot(self, cm: torch.Tensor) -> None:
-        """
-        Generate and display/save the confusion matrix plot.
+        """Generate and display/save the confusion matrix plot.
 
         Args:
             cm (torch.Tensor): The confusion matrix to plot.
+
         """
         cm = cm.cpu().numpy()  # type: ignore
 
@@ -229,8 +231,7 @@ class ConfusionMatrixLogger(Metric):
             square=self.square,
             annot_kws=self.annot_kws,
             vmin=self.vmin,
-            vmax=self.vmax
-            or cm.max(),  # Dynamically scale to max value if not provided
+            vmax=self.vmax or cm.max(),  # Dynamically scale to max value if not provided
         )
 
         # Customize plot aesthetics
@@ -238,7 +239,9 @@ class ConfusionMatrixLogger(Metric):
         plt.xlabel("Predicted Labels", fontsize=self.label_fontsize)
         plt.ylabel("True Labels", fontsize=self.label_fontsize)
         plt.xticks(
-            rotation=self.xtick_rotation, ha="right", fontsize=self.tick_fontsize
+            rotation=self.xtick_rotation,
+            ha="right",
+            fontsize=self.tick_fontsize,
         )
         plt.yticks(fontsize=self.tick_fontsize)
         plt.tight_layout()

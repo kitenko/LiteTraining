@@ -1,14 +1,13 @@
 import importlib
 from typing import List, Optional
-from jsonargparse import Namespace
 
 import torch
+from jsonargparse import Namespace
 from torch.nn import Module
 
 
 def instantiate_from_config(config: Namespace):
-    """
-    Instantiates an object from a configuration that specifies the class path and initialization arguments.
+    """Instantiates an object from a configuration that specifies the class path and initialization arguments.
 
     Args:
         config (Namespace): Configuration containing 'class_path' (str) with the full import path of the class
@@ -19,6 +18,7 @@ def instantiate_from_config(config: Namespace):
 
     Raises:
         ImportError: If the module or class cannot be found.
+
     """
     class_path = config["class_path"]
     init_args = config.get("init_args", {})
@@ -30,8 +30,7 @@ def instantiate_from_config(config: Namespace):
 
 
 def instantiate_classes_from_config(configs: List[Namespace]):
-    """
-    Instantiates a list of objects based on the provided list of configurations.
+    """Instantiates a list of objects based on the provided list of configurations.
 
     Args:
         configs (List[Namespace]): List of configuration objects for each class to instantiate.
@@ -39,6 +38,7 @@ def instantiate_classes_from_config(configs: List[Namespace]):
 
     Returns:
         List: A list of instantiated objects.
+
     """
     instances = []
     for config in configs:
@@ -48,10 +48,11 @@ def instantiate_classes_from_config(configs: List[Namespace]):
 
 
 def load_checkpoint(
-    ckpt_path: Optional[str], model: Module, strict: bool = True
+    ckpt_path: Optional[str],
+    model: Module,
+    strict: bool = True,
 ) -> None:
-    """
-    Loads model weights from a checkpoint file into the model instance, omitting any optimizer state.
+    """Loads model weights from a checkpoint file into the model instance, omitting any optimizer state.
 
     Args:
         ckpt_path (Optional[str]): Path to the checkpoint file. If None, no weights are loaded.
@@ -66,6 +67,7 @@ def load_checkpoint(
         FileNotFoundError: If the checkpoint path is specified but the file does not exist.
         RuntimeError: If there is an issue with loading the weights into the model (e.g., size mismatch)
                       and strict=True.
+
     """
     if ckpt_path:
         # Load the checkpoint from the specified path

@@ -1,5 +1,26 @@
 [MAIN]
 
+# Files or directories to be skipped. They should be base names, not paths.
+ignore=CVS,.pixi,.venv,site-packages,.pytest_cache,.vscode,.mypy_cache
+
+# Add files or directories matching the regular expressions patterns to the
+# ignore-list. The regex matches against paths and can be in Posix or Windows
+# format. Because '\\' represents the directory delimiter on Windows systems,
+# it can't be used as an escape character.
+ignore-paths=
+
+# Files or directories matching the regular expression patterns are skipped.
+# The regex matches against base names, not paths. The default value ignores
+# Emacs file locks
+ignore-patterns=^\.#
+
+# List of module names for which member attributes should not be checked and
+# will not be imported (useful for modules/projects where namespaces are
+# manipulated during runtime and thus existing member attributes cannot be
+# deduced by static analysis). It supports qualified module names, as well as
+# Unix pattern matching.
+ignored-modules=
+
 # Analyse import fallback blocks. This can be used to support both Python 2 and
 # 3 compatible code, which means that the block might have code that exists
 # only in one or another interpreter, leading to false positives when analysed.
@@ -44,27 +65,6 @@ fail-under=10
 # Interpret the stdin as a python script, whose filename needs to be passed as
 # the module_or_package argument.
 #from-stdin=
-
-# Files or directories to be skipped. They should be base names, not paths.
-ignore=CVS
-
-# Add files or directories matching the regular expressions patterns to the
-# ignore-list. The regex matches against paths and can be in Posix or Windows
-# format. Because '\\' represents the directory delimiter on Windows systems,
-# it can't be used as an escape character.
-ignore-paths=
-
-# Files or directories matching the regular expression patterns are skipped.
-# The regex matches against base names, not paths. The default value ignores
-# Emacs file locks
-ignore-patterns=^\.#
-
-# List of module names for which member attributes should not be checked and
-# will not be imported (useful for modules/projects where namespaces are
-# manipulated during runtime and thus existing member attributes cannot be
-# deduced by static analysis). It supports qualified module names, as well as
-# Unix pattern matching.
-ignored-modules=
 
 # Python code to execute, usually for sys.path manipulation such as
 # pygtk.require().
