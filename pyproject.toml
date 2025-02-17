@@ -29,9 +29,9 @@ lint = { depends-on = ["black", "isort", "pylint", "mypy"] }
 
 [tool.pixi.environments]
 default = { features = ["gpu"], solve-group = "default" }
-dev = { features = ["dev", "cpu"], solve-group = "cpu" }
 cpu = { features = ["cpu"], solve-group = "cpu" }
-
+dev = { features = ["dev", "cpu"], solve-group = "cpu" }
+dev-gpu = { features = ["dev", "gpu"], solve-group = "default" }
 
 [tool.pixi.dependencies]
 torchvision = "==0.20.1"
