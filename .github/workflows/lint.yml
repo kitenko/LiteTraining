@@ -15,4 +15,4 @@ jobs:
         run: docker build -t my-lint-container -f Dockerfile .
 
       - name: Run Linter in Container
-        run: docker run --rm -v "$(pwd):/app" my-lint-container bash -c "pixi install && pixi run -e dev lint"
+        run: docker run --rm -it --gpus all -v my-lint-container bash -c "pixi run -e dev lint"
