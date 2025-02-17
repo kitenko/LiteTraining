@@ -15,4 +15,4 @@ jobs:
         run: docker build --build-arg ENVIRONMENT=dev -t my-lint-container .
 
       - name: Run Linter in Container
-        run: docker run --rm -it my-lint-container bash -c "pixi run -e dev lint"
+        run: docker run --rm my-lint-container bash -c "pixi run -e dev lint"
