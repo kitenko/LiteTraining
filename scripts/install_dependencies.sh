@@ -13,4 +13,10 @@ apt-get update && apt-get install -y \
 
 
 echo "Installing Pixi..."
-curl -fsSL https://pixi.sh/install.sh | bash
+curl -fsSL https://pixi.sh/install.sh | bash -s -- --version 0.41.3
+
+echo 'export PATH="$HOME/.pixi/bin:$PATH"' >> ~/.bashrc
+echo 'export PATH="$HOME/.pixi/bin:$PATH"' >> ~/.profile
+export PATH="$HOME/.pixi/bin:$PATH"
+
+pixi --version
