@@ -3,13 +3,14 @@ This module provides a base class for managing image datasets, including
 cache handling for training, validation, and test splits.
 """
 
-import os
+import hashlib
 import json
 import logging
-import hashlib
+import os
+from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Optional, Tuple
-from abc import ABC, abstractmethod
+
 from datasets import Dataset, concatenate_datasets
 
 logger = logging.getLogger(__name__)
@@ -67,9 +68,7 @@ class ImageDatasetBase(ABC):
             ValueError: If the cache file does not have a '.arrow' extension.
         """
         if not cache_file_path.endswith(".arrow"):
-            raise ValueError(
-                f"Cache file must end with '.arrow'. Provided: {cache_file_path}"
-            )
+            raise ValueError(f"Cache file must end with '.arrow'. Provided: {cache_file_path}")
 
         os.makedirs(os.path.dirname(cache_file_path), exist_ok=True)
         dataset.save_to_disk(cache_file_path)
@@ -98,9 +97,7 @@ class ImageDatasetBase(ABC):
             logger.info(f"Loading dataset from cache: {cache_file_path}")
             return Dataset.load_from_disk(cache_file_path)
 
-        raise FileNotFoundError(
-            f"Cache file not found at {cache_file_path}. Generate it using save_to_cache."
-        )
+        raise FileNotFoundError(f"Cache file not found at {cache_file_path}. Generate it using save_to_cache.")
 
     @abstractmethod
     def get_train_data(self) -> Tuple[Dataset, Optional[str]]:
@@ -131,9 +128,7 @@ class ImageDatasetBase(ABC):
 
         full_dataset = concatenate_datasets([train_data, val_data, test_data])
         combined_checksum = hashlib.md5(
-            (
-                (train_checksum or "") + (val_checksum or "") + (test_checksum or "")
-            ).encode("utf-8")
+            ((train_checksum or "") + (val_checksum or "") + (test_checksum or "")).encode("utf-8")
         ).hexdigest()
 
         return full_dataset, combined_checksum
@@ -183,9 +178,7 @@ class ImageDatasetBase(ABC):
         if not checksum:
             return None
 
-        checksum_file = os.path.join(
-            self.cache_dir, f"{split_type}_{checksum}_checksum.json"
-        )
+        checksum_file = os.path.join(self.cache_dir, f"{split_type}_{checksum}_checksum.json")
         if os.path.exists(checksum_file):
             with open(checksum_file, "r", encoding="utf-8") as file:
                 data = json.load(file)
@@ -204,8 +197,6 @@ class ImageDatasetBase(ABC):
         if not checksum:
             return
 
-        checksum_file = os.path.join(
-            self.cache_dir, f"{split_type}_{checksum}_checksum.json"
-        )
+        checksum_file = os.path.join(self.cache_dir, f"{split_type}_{checksum}_checksum.json")
         with open(checksum_file, "w", encoding="utf-8") as file:
             json.dump({"checksum": checksum}, file)

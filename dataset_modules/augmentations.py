@@ -1,33 +1,33 @@
 """
-This module defines various image augmentations and a dataset transformation class 
+This module defines various image augmentations and a dataset transformation class
 for applying augmentations to batches of images.
 
-The module is built on top of the `albumentations` library and extends its 
+The module is built on top of the `albumentations` library and extends its
 transformations for use in machine learning workflows.
 """
 
-from typing import List, Literal, Union, Tuple, Dict, Any
+from typing import Any, Dict, List, Literal, Tuple, Union
 
 import numpy as np
-from albumentations.core.composition import BaseCompose
-from albumentations.core.transforms_interface import BasicTransform
 from albumentations import (
     Compose,
-    RandomCrop as AlbumentationsRandomCrop,
-    HorizontalFlip as AlbumentationsHorizontalFlip,
-    VerticalFlip as AlbumentationsVerticalFlip,
-    Rotate as AlbumentationsRotate,
-    RandomBrightnessContrast as AlbumentationsRandomBrightnessContrast,
-    GaussNoise as AlbumentationsGaussNoise,
-    GaussianBlur as AlbumentationsGaussianBlur,
-    MotionBlur as AlbumentationsMotionBlur,
-    ElasticTransform as AlbumentationsElasticTransform,
-    GridDistortion as AlbumentationsGridDistortion,
-    LongestMaxSize as AlbumentationsLongestMaxSize,
-    PadIfNeeded as AlbumentationsPadIfNeeded,
-    Resize as AlbumentationsResize,
 )
+from albumentations import ElasticTransform as AlbumentationsElasticTransform
+from albumentations import GaussianBlur as AlbumentationsGaussianBlur
+from albumentations import GaussNoise as AlbumentationsGaussNoise
+from albumentations import GridDistortion as AlbumentationsGridDistortion
+from albumentations import HorizontalFlip as AlbumentationsHorizontalFlip
+from albumentations import LongestMaxSize as AlbumentationsLongestMaxSize
+from albumentations import MotionBlur as AlbumentationsMotionBlur
+from albumentations import PadIfNeeded as AlbumentationsPadIfNeeded
+from albumentations import RandomBrightnessContrast as AlbumentationsRandomBrightnessContrast
+from albumentations import RandomCrop as AlbumentationsRandomCrop
+from albumentations import Resize as AlbumentationsResize
+from albumentations import Rotate as AlbumentationsRotate
+from albumentations import VerticalFlip as AlbumentationsVerticalFlip
 from albumentations.augmentations.transforms import Normalize as AlbumentationsNormalize
+from albumentations.core.composition import BaseCompose
+from albumentations.core.transforms_interface import BasicTransform
 
 
 # pylint: disable=too-few-public-methods
@@ -62,8 +62,7 @@ class TransformDataset:
             dict: Transformed dataset with updated 'pixel_values'.
         """
         example_batch["pixel_values"] = [
-            self.transformations(image=np.array(image.convert("RGB")))["image"]
-            for image in example_batch["image"]
+            self.transformations(image=np.array(image.convert("RGB")))["image"] for image in example_batch["image"]
         ]
         return example_batch
 
@@ -115,9 +114,7 @@ class Normalize(AlbumentationsNormalize):
         mean: Tuple[float, float, float] = (0.485, 0.456, 0.406),
         std: Tuple[float, float, float] = (0.229, 0.224, 0.225),
         max_pixel_value: float = 255.0,
-        normalization: Literal[
-            "standard", "image", "image_per_channel", "min_max", "min_max_per_channel"
-        ] = "standard",
+        normalization: Literal["standard", "image", "image_per_channel", "min_max", "min_max_per_channel"] = "standard",
         always_apply: bool = False,
         p: float = 1.0,
     ):
@@ -134,9 +131,7 @@ class Normalize(AlbumentationsNormalize):
 class RandomCrop(AlbumentationsRandomCrop):
     """Randomly crops the image to the specified height and width."""
 
-    def __init__(
-        self, height: int, width: int, always_apply: bool = False, p: float = 0.5
-    ):
+    def __init__(self, height: int, width: int, always_apply: bool = False, p: float = 0.5):
         super().__init__(height=height, width=width, always_apply=always_apply, p=p)
 
 
@@ -164,20 +159,14 @@ class Rotate(AlbumentationsRotate):
         border_mode: int = 0,
         p: float = 0.5,
     ):
-        super().__init__(
-            limit=limit, interpolation=interpolation, border_mode=border_mode, p=p
-        )
+        super().__init__(limit=limit, interpolation=interpolation, border_mode=border_mode, p=p)
 
 
 class RandomBrightnessContrast(AlbumentationsRandomBrightnessContrast):
     """Randomly adjusts brightness and contrast."""
 
-    def __init__(
-        self, brightness_limit: float = 0.2, contrast_limit: float = 0.2, p: float = 0.5
-    ):
-        super().__init__(
-            brightness_limit=brightness_limit, contrast_limit=contrast_limit, p=p
-        )
+    def __init__(self, brightness_limit: float = 0.2, contrast_limit: float = 0.2, p: float = 0.5):
+        super().__init__(brightness_limit=brightness_limit, contrast_limit=contrast_limit, p=p)
 
 
 class GaussNoise(AlbumentationsGaussNoise):

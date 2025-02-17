@@ -18,11 +18,19 @@ cuda = "12.4"
 [tool.pixi.pypi-dependencies]
 app = { path = ".", editable = true }
 
+
 [tool.pixi.tasks]
+black = "black ."
+pylint = "pylint ."
+mypy = "mypy ."
+isort = "isort ."
+lint = { depends-on = ["black", "isort", "pylint", "mypy"] }
+
 
 [tool.pixi.environments]
 default = { solve-group = "default" }
 dev = { features = ["dev"], solve-group = "default" }
+
 
 [tool.pixi.dependencies]
 pytorch-gpu = "==2.5.1"
@@ -39,8 +47,19 @@ seaborn = "==0.13.2"
 
 [tool.pixi.feature.dev.dependencies]
 pylint = "==3.3.4"
-black = "==25.1.0"
 pre-commit = "==4.1.0"
 mypy = "==1.15.0"
 types-pyyaml = "==6.0.12.20241230"
 pytest-mock = "==3.14.0"
+isort = "==6.0.0"
+
+[tool.pixi.feature.dev.pypi-dependencies]
+black = {version = ">=25.1.0,<26", extras = ["jupyter"]}
+
+[tool.isort]
+skip = [".pixi", ".vscode"]
+profile = "black"
+line_length = 120
+
+[tool.black]
+line-length = 120

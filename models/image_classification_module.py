@@ -7,11 +7,11 @@ and test steps with specific handling for image classification.
 """
 
 import logging
-from typing import Dict, Any
+from typing import Any, Dict
 
 import torch
-from torch import Tensor, nn
 from pytorch_lightning import LightningModule
+from torch import Tensor, nn
 
 from models.models import ImageClassification
 
@@ -59,9 +59,7 @@ class ImageClassificationModule(LightningModule):
         """
         return self.model(input_values)
 
-    def _train_val_test_step(
-        self, batch: Dict[str, Any], phase: str
-    ) -> Dict[str, Tensor]:
+    def _train_val_test_step(self, batch: Dict[str, Any], phase: str) -> Dict[str, Tensor]:
         """
         Performs a forward pass, computes the loss, and logs results for a specific phase (train, validation, or test).
 

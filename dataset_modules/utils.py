@@ -8,7 +8,7 @@ automatically attempts to reload the data if the cache is missing.
 
 import logging
 from functools import wraps
-from typing import Callable, List, Dict, Any
+from typing import Any, Callable, Dict, List
 
 import torch
 

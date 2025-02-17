@@ -8,15 +8,15 @@ This module contains custom PyTorch Lightning callbacks, including:
    and test metrics using the `MetricsModule`.
 """
 
-import os
 import copy
 import logging
-from typing import Optional, Any, Dict
+import os
+from typing import Any, Dict, Optional
 
 import pytorch_lightning as pl
+from pytorch_lightning.callbacks import Callback, ModelCheckpoint
 from torch import Tensor
 from torchmetrics import Metric
-from pytorch_lightning.callbacks import ModelCheckpoint, Callback
 
 from toolkit.metrics import MetricsModule
 
@@ -51,9 +51,7 @@ class PeriodicCheckpointSaver(ModelCheckpoint):
         self.checkpoint_prefix = checkpoint_prefix
         self.logger = logging.getLogger(__name__)
 
-    def on_validation_end(
-        self, trainer: pl.Trainer, pl_module: pl.LightningModule
-    ) -> None:
+    def on_validation_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
         """Handles model saving logic after each validation epoch."""
 
         # Skip saving if it's the first epoch
@@ -74,9 +72,7 @@ class PeriodicCheckpointSaver(ModelCheckpoint):
         if not isinstance(self.dirpath, str) or not self.dirpath:
             raise ValueError("The directory path (dirpath) must be a non-empty string.")
 
-        filepath = os.path.join(
-            self.dirpath, f"{self.checkpoint_prefix}={trainer.current_epoch:02d}.ckpt"
-        )
+        filepath = os.path.join(self.dirpath, f"{self.checkpoint_prefix}={trainer.current_epoch:02d}.ckpt")
         self._save_checkpoint(trainer, filepath)
         if self.verbose:
             self.logger.info(
@@ -90,9 +86,7 @@ class PeriodicCheckpointSaver(ModelCheckpoint):
 
         if self.monitor is None:
             if self.verbose:
-                self.logger.warning(
-                    "No monitor metric specified; skipping best model save."
-                )
+                self.logger.warning("No monitor metric specified; skipping best model save.")
             return
 
         metrics = self._monitor_candidates(trainer)
@@ -100,9 +94,7 @@ class PeriodicCheckpointSaver(ModelCheckpoint):
 
         if current_metric is None:
             if self.verbose:
-                self.logger.warning(
-                    "Metric '%s' not found; skipping best model save.", self.monitor
-                )
+                self.logger.warning("Metric '%s' not found; skipping best model save.", self.monitor)
             return
 
         self._save_topk_checkpoint(trainer, metrics)
@@ -133,56 +125,37 @@ class MetricsLoggerCallback(Callback):
     @staticmethod
     def _copy_metrics(metrics: Dict[str, Metric]) -> Dict[str, Metric]:
         """Creates a deep copy of the provided metrics dictionary for use in each training phase."""
-        return {
-            name_metric: copy.deepcopy(metric)
-            for name_metric, metric in metrics.items()
-        }
+        return {name_metric: copy.deepcopy(metric) for name_metric, metric in metrics.items()}
 
     def on_fit_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
         """
         Initializes metrics modules for training and validation on the model's device at the start of training.
         """
         device = pl_module.device
-        self.train_metrics = MetricsModule(
-            device, metrics=self._copy_metrics(self.metrics)
-        )
-        self.val_metrics = MetricsModule(
-            device, metrics=self._copy_metrics(self.metrics)
-        )
+        self.train_metrics = MetricsModule(device, metrics=self._copy_metrics(self.metrics))
+        self.val_metrics = MetricsModule(device, metrics=self._copy_metrics(self.metrics))
         self.logger.info(
             "Initialized metric modules on device %s for training and validation",
             device,
         )
 
-    def on_validation_start(
-        self, trainer: pl.Trainer, pl_module: pl.LightningModule
-    ) -> None:
+    def on_validation_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
         """
         Initializes metrics module for testing on the model's device.
         """
         device = pl_module.device
-        self.val_metrics = MetricsModule(
-            device, metrics=self._copy_metrics(self.metrics)
-        )
-        self.logger.info(
-            "Initialized test metric module on device %s with metrics", device
-        )
+        self.val_metrics = MetricsModule(device, metrics=self._copy_metrics(self.metrics))
+        self.logger.info("Initialized test metric module on device %s with metrics", device)
 
     def on_test_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
         """
         Initializes metrics module for testing on the model's device.
         """
         device = pl_module.device
-        self.test_metrics = MetricsModule(
-            device, metrics=self._copy_metrics(self.metrics)
-        )
-        self.logger.info(
-            "Initialized test metric module on device %s with metrics", device
-        )
+        self.test_metrics = MetricsModule(device, metrics=self._copy_metrics(self.metrics))
+        self.logger.info("Initialized test metric module on device %s with metrics", device)
 
-    def _update_metrics(
-        self, metrics_module: Optional[MetricsModule], outputs, phase: str
-    ) -> None:
+    def _update_metrics(self, metrics_module: Optional[MetricsModule], outputs, phase: str) -> None:
         """
         Updates metrics for a given phase and logs a warning if the metrics module is None.
 
@@ -194,9 +167,7 @@ class MetricsLoggerCallback(Callback):
         if metrics_module is not None:
             metrics_module.update_metrics(outputs["preds"], outputs["targets"])
         else:
-            self.logger.warning(
-                "Metrics module for %s phase is None during batch end", phase
-            )
+            self.logger.warning("Metrics module for %s phase is None during batch end", phase)
 
     def _log_metrics(
         self,
@@ -216,9 +187,7 @@ class MetricsLoggerCallback(Callback):
             metrics_module.log_metrics(phase, pl_module)
             self.logger.info("Logged metrics for phase: %s", phase)
         else:
-            self.logger.warning(
-                "Metrics module for %s phase is None during epoch end", phase
-            )
+            self.logger.warning("Metrics module for %s phase is None during epoch end", phase)
 
     def on_train_batch_end(
         self,
@@ -247,9 +216,7 @@ class MetricsLoggerCallback(Callback):
         """Called at the end of each validation batch to update validation metrics."""
         self._update_metrics(self.val_metrics, outputs, "validation")
 
-    def on_validation_epoch_end(
-        self, trainer: pl.Trainer, pl_module: pl.LightningModule
-    ):
+    def on_validation_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule):
         """Called at the end of each validation epoch to log validation metrics."""
         # if trainer.is_global_zero:
         #     confusion_matrix = self.val_metrics.metrics.get("confusion_matrix")

@@ -8,23 +8,22 @@ parameters based on the hyperparameters sampled by Optuna.
 
 import copy
 import logging
-from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Any, Dict, Literal, Tuple, Optional
+from pathlib import Path
+from typing import Any, Dict, Literal, Optional, Tuple
 
 import optuna
+from jsonargparse import Namespace
 from optuna import Study, Trial
 from optuna.trial import FrozenTrial
-from jsonargparse import Namespace
 from pytorch_lightning.cli import LightningCLI
 
 from toolkit.folder_manager import (
-    setup_directories_optuna,
-    setup_logging_and_save_config,
     load_yaml,
     save_yaml,
+    setup_directories_optuna,
+    setup_logging_and_save_config,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -111,9 +110,7 @@ class OptunaTuner:
             return
 
         # Calculate the number of completed trials
-        completed_trials = len(
-            [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
-        )
+        completed_trials = len([t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE])
         remaining_trials = n_trials - completed_trials
 
         # Exit if all trials are already completed
@@ -123,9 +120,7 @@ class OptunaTuner:
 
         try:
             # Run the optimization process for the remaining trials
-            logger.info(
-                f"Starting optimization with {remaining_trials} remaining trials."
-            )
+            logger.info(f"Starting optimization with {remaining_trials} remaining trials.")
             study.optimize(
                 lambda trial: self.objective(trial, metric),
                 n_trials=remaining_trials,
@@ -162,9 +157,7 @@ class OptunaTuner:
         # Convert Namespace to dictionary
         args_dict = vars(config)
         # Create a new dictionary with only the specified keys
-        filtered_dict = {
-            key: value for key, value in args_dict.items() if key in keep_keys
-        }
+        filtered_dict = {key: value for key, value in args_dict.items() if key in keep_keys}
         # Convert filtered dictionary back to Namespace
         return Namespace(**filtered_dict)
 
@@ -180,9 +173,7 @@ class OptunaTuner:
             float: The value of the metric for this trial.
         """
         hparams = self.get_hparams_from_trial(trial)
-        base_dir, checkpoints_dir, logs_dir = setup_directories_optuna(
-            self.base_dir, trial.number
-        )
+        base_dir, checkpoints_dir, logs_dir = setup_directories_optuna(self.base_dir, trial.number)
 
         # Clone and update the configuration with sampled hyperparameters
         config = copy.deepcopy(self.config)
@@ -199,9 +190,7 @@ class OptunaTuner:
         # Get the value of the optimization metric
         val_result = cli.trainer.callback_metrics.get(metric)
         if val_result is None:
-            raise ValueError(
-                f"Metric '{metric}' not found in callback metrics. Hparams: {hparams}"
-            )
+            raise ValueError(f"Metric '{metric}' not found in callback metrics. Hparams: {hparams}")
 
         logger.info(f"Optuna val_result: {val_result.item()}, hparams: {hparams}")
         return val_result.item()
@@ -220,9 +209,7 @@ class OptunaTuner:
         search_spaces = self.config.optuna.search_spaces
         for param_path, param_config in search_spaces.items():
             distribution = param_config["distribution"]
-            param_name = (
-                param_path.replace(".", "__").replace("[", "_").replace("]", "")
-            )
+            param_name = param_path.replace(".", "__").replace("[", "_").replace("]", "")
             if distribution == "uniform":
                 low = param_config["low"]
                 high = param_config["high"]
@@ -236,9 +223,7 @@ class OptunaTuner:
                 high = int(param_config["high"])
                 hparam_value = trial.suggest_int(param_name, low, high)
             else:
-                raise ValueError(
-                    f"Unknown distribution {distribution} for parameter {param_name}"
-                )
+                raise ValueError(f"Unknown distribution {distribution} for parameter {param_name}")
             hparams[param_path] = hparam_value
         return hparams
 
@@ -256,9 +241,7 @@ class OptunaTuner:
         try:
             results = load_yaml(trial_results_path)
         except FileNotFoundError:
-            logger.warning(
-                f"YAML file not found, creating a new one: {trial_results_path}"
-            )
+            logger.warning(f"YAML file not found, creating a new one: {trial_results_path}")
             results = {}
 
         results[f"trial_{trial.number}"] = {

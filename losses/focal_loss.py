@@ -10,8 +10,10 @@ Classes:
 """
 
 import logging
+
 import torch
 from torch import nn
+
 from losses.utils import load_weights_from_file
 
 logger = logging.getLogger(__name__)
@@ -58,9 +60,7 @@ class WeightedFocalLoss(nn.Module):
         probs = torch.softmax(logits, dim=1)
 
         # Create one-hot encoding for targets
-        targets_one_hot = torch.eye(probs.size(1), device=logits.device)[
-            targets
-        ]  # Move to the same device
+        targets_one_hot = torch.eye(probs.size(1), device=logits.device)[targets]  # Move to the same device
 
         # Extract probabilities of the correct class
         pt = (probs * targets_one_hot).sum(dim=1)  # Probability of the correct class
@@ -88,7 +88,5 @@ class WeightedFocalLoss(nn.Module):
         """
         Override the `.to` method to handle weights properly.
         """
-        self.weights = (
-            self.weights.to(*args, **kwargs) if self.weights is not None else None
-        )
+        self.weights = self.weights.to(*args, **kwargs) if self.weights is not None else None
         return super().to(*args, **kwargs)

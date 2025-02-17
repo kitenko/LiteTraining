@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Tuple, List
+from typing import List, Tuple
 
 
 def count_classes(data_dir: str) -> Tuple[int, List[str]]:
@@ -15,9 +15,7 @@ def count_classes(data_dir: str) -> Tuple[int, List[str]]:
     data_path = Path(data_dir)
 
     if not data_path.exists() or not data_path.is_dir():
-        raise FileNotFoundError(
-            f"The specified directory does not exist or is not a directory: {data_dir}"
-        )
+        raise FileNotFoundError(f"The specified directory does not exist or is not a directory: {data_dir}")
 
     # Get a list of all subdirectories (class folders)
     classes = [folder.name for folder in data_path.iterdir() if folder.is_dir()]

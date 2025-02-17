@@ -5,15 +5,13 @@ It defines a function `setup_logging` that configures logging to store logs
 in a specified file and display them in the console with consistent formatting.
 """
 
-import os
 import logging
+import os
 from pathlib import Path
 from typing import Union
 
 
-def setup_logging(
-    log_dir: Union[Path, str], log_filename: Union[Path, str] = "training_log.log"
-) -> None:
+def setup_logging(log_dir: Union[Path, str], log_filename: Union[Path, str] = "training_log.log") -> None:
     """
     Sets up logging to store logs in a specified directory and display them in the console.
 
@@ -44,9 +42,7 @@ def setup_logging(
     root_logger.setLevel(logging.INFO)
 
     # Define log format
-    log_format = (
-        "[%(asctime)s] %(levelname)-8s %(filename)s:%(lineno)d - %(name)s - %(message)s"
-    )
+    log_format = "[%(asctime)s] %(levelname)-8s %(filename)s:%(lineno)d - %(name)s - %(message)s"
     formatter = logging.Formatter(log_format)
 
     # File handler for logging to a file
@@ -63,6 +59,4 @@ def setup_logging(
     root_logger.addHandler(file_handler)
     root_logger.addHandler(console_handler)
 
-    root_logger.info(
-        "Logging has been set up. Logs will be stored in: %s", log_filepath
-    )
+    root_logger.info("Logging has been set up. Logs will be stored in: %s", log_filepath)
