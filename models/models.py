@@ -6,19 +6,15 @@ It includes the `ImageClassification` class, which allows for flexible fine-tuni
 and learning rate schedulers based on user configuration.
 """
 
-import logging
 import importlib
+import logging
 from dataclasses import dataclass
-from typing import Optional, Dict, Any, Union, Tuple, Literal
+from typing import Any, Dict, Literal, Optional, Tuple, Union
 
 import torch
 from torch import nn
 from torch.optim import Optimizer
-from torch.optim.lr_scheduler import (
-    StepLR,
-    MultiStepLR,
-    ReduceLROnPlateau,
-)
+from torch.optim.lr_scheduler import MultiStepLR, ReduceLROnPlateau, StepLR
 from transformers import AutoModelForImageClassification
 
 from toolkit.env_loader import ConfigLoader
@@ -120,13 +116,9 @@ class ImageClassification(nn.Module):
                 model_name, num_labels=num_classes, use_auth_token=auth_token
             )
         )
-        logger.info(
-            f"Loaded {'pretrained' if pretrained else 'untrained'} model '{model_name}'."
-        )
+        logger.info(f"Loaded {'pretrained' if pretrained else 'untrained'} model '{model_name}'.")
 
-    def _apply_freezing(
-        self, freeze_encoder: Union[bool, float], freeze_classifier: bool
-    ) -> None:
+    def _apply_freezing(self, freeze_encoder: Union[bool, float], freeze_classifier: bool) -> None:
         """
         Apply freezing to encoder and/or classifier layers based on the provided configuration.
 
@@ -263,6 +255,4 @@ class ImageClassification(nn.Module):
             return getattr(module, class_name)
         except (ImportError, AttributeError) as e:
             logger.error(f"Could not import {class_path}. Error: {e}")
-            raise ImportError(
-                f"Failed to import {class_path}. Check path validity."
-            ) from e
+            raise ImportError(f"Failed to import {class_path}. Check path validity.") from e

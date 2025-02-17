@@ -1,16 +1,16 @@
 """
-This is the main module for running the ImageClassificationCLI command with ImageClassificationModule and 
+This is the main module for running the ImageClassificationCLI command with ImageClassificationModule and
 ImageDataModule.
 
 It sets up a fault handler and starts the CLI for configuring and running image classification models.
 """
 
-import logging
 import faulthandler
-from typing import Optional, Callable
+import logging
+from typing import Callable, Optional
 
-from toolkit.custom_cli import CustomLightningCLI
 from toolkit.agent_utils import load_checkpoint
+from toolkit.custom_cli import CustomLightningCLI
 from toolkit.predict_functions import run_predict_to_csv
 
 # Enable fault handler to track segmentation faults
@@ -77,9 +77,7 @@ def run_predict(
         predict_fn (Callable): Custom function to process predictions and save them.
     """
     # Run predictions using PyTorch Lightning's predict method
-    predictions = cli.trainer.predict(
-        cli.model, datamodule=cli.datamodule, ckpt_path=ckpt_path
-    )
+    predictions = cli.trainer.predict(cli.model, datamodule=cli.datamodule, ckpt_path=ckpt_path)
 
     # Get class labels and submission template path from the dataset
     class_labels = cli.datamodule.dataset_classes[0].class_labels

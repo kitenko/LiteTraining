@@ -2,9 +2,10 @@
 This module provides the ConfigLoader class, which loads configuration variables from a specified .env file.
 """
 
-import os
 import logging
+import os
 from typing import Optional
+
 from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
@@ -37,7 +38,10 @@ class ConfigLoader:
             load_dotenv(self.env_file)
             logger.info("Configuration variables loaded from %s", self.env_file)
         else:
-            logger.warning("No .env file found at %s. Skipping configuration loading.", self.env_file)
+            logger.warning(
+                "No .env file found at %s. Skipping configuration loading.",
+                self.env_file,
+            )
 
     def get_variable(self, key: str) -> Optional[str]:
         """

@@ -1,8 +1,8 @@
 """
-This module provides a context manager for selectively suppressing warnings 
+This module provides a context manager for selectively suppressing warnings
 based on specific text patterns.
 
-The WarningFilter class allows for temporary suppression of warnings containing 
+The WarningFilter class allows for temporary suppression of warnings containing
 certain keywords or phrases, providing cleaner output during the execution of code blocks.
 """
 

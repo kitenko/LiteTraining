@@ -12,18 +12,17 @@ The module also defines the `DatasetSection` enum for identifying different data
 and uses utilities such as `ensure_cache_loaded` for handling cached datasets efficiently.
 """
 
-import os
 import logging
-from enum import Enum
+import os
 from collections import Counter
-from typing import Optional, Tuple, List
+from enum import Enum
+from typing import List, Optional, Tuple
 
-from datasets import load_dataset, Dataset
+from datasets import Dataset, load_dataset
 from sklearn.model_selection import StratifiedShuffleSplit
 
-from dataset_modules.base_dataset import ImageDatasetBase, DatasetSplit
+from dataset_modules.base_dataset import DatasetSplit, ImageDatasetBase
 from dataset_modules.utils import ensure_cache_loaded
-
 
 logger = logging.getLogger(__name__)
 
@@ -105,13 +104,11 @@ class FolderImageDataset(ImageDatasetBase):
         Args:
             regenerate (bool): If True, forces re-creation of the dataset from source files.
         """
-        train_val_data, self.cached_train_checksum, self.cached_val_checksum = (
-            self._load_and_cache_split(
-                DatasetSection.TRAIN_VAL,
-                self.train_val_dir,
-                split_ratio=self.validation_split,
-                create_dataset=regenerate,
-            )
+        train_val_data, self.cached_train_checksum, self.cached_val_checksum = self._load_and_cache_split(
+            DatasetSection.TRAIN_VAL,
+            self.train_val_dir,
+            split_ratio=self.validation_split,
+            create_dataset=regenerate,
         )
         self.train_dataset, self.val_dataset = train_val_data
 
@@ -124,10 +121,8 @@ class FolderImageDataset(ImageDatasetBase):
             )
 
         if self.prediction_dir:
-            self.prediction_dataset, self.cached_predict_checksum = (
-                self._load_prediction_data(
-                    self.prediction_dir, create_dataset=regenerate
-                )
+            self.prediction_dataset, self.cached_predict_checksum = self._load_prediction_data(
+                self.prediction_dir, create_dataset=regenerate
             )
 
         if not self.class_labels:
@@ -157,24 +152,16 @@ class FolderImageDataset(ImageDatasetBase):
         section_name = section.value
         logger.info(f"Computing checksum for {section_name} directory: {data_dir}")
 
-        checksum_key = (
-            f"{section_name}_{split_ratio}"
-            if section == DatasetSection.TRAIN_VAL
-            else section_name
-        )
+        checksum_key = f"{section_name}_{split_ratio}" if section == DatasetSection.TRAIN_VAL else section_name
         checksum = self.compute_directory_checksum(data_dir)
         cached_checksum = self.load_checksum(checksum_key, checksum)
 
         if checksum != cached_checksum or create_dataset:
-            logger.info(
-                f"Changes detected in {section_name} data or forced re-creation. Processing data."
-            )
+            logger.info(f"Changes detected in {section_name} data or forced re-creation. Processing data.")
             dataset = load_dataset("imagefolder", data_dir=data_dir)["train"]
 
             if split_ratio and section == DatasetSection.TRAIN_VAL:
-                train_dataset, val_dataset = self._stratified_split(
-                    dataset, split_ratio
-                )
+                train_dataset, val_dataset = self._stratified_split(dataset, split_ratio)
 
                 self.save_to_cache(
                     train_dataset,
@@ -194,19 +181,13 @@ class FolderImageDataset(ImageDatasetBase):
 
         logger.info(f"No changes detected in {section_name} data. Loading from cache.")
         if section == DatasetSection.TRAIN_VAL:
-            train_dataset = self.load_from_cache(
-                os.path.join(self.cache_dir, f"{section_name}_train.arrow")
-            )
-            val_dataset = self.load_from_cache(
-                os.path.join(self.cache_dir, f"{section_name}_val.arrow")
-            )
+            train_dataset = self.load_from_cache(os.path.join(self.cache_dir, f"{section_name}_train.arrow"))
+            val_dataset = self.load_from_cache(os.path.join(self.cache_dir, f"{section_name}_val.arrow"))
             return (train_dataset, val_dataset), cached_checksum, cached_checksum
         else:
             return self.load_from_cache(f"{section_name}.arrow"), cached_checksum
 
-    def _load_prediction_data(
-        self, data_dir: str, create_dataset: bool = False
-    ) -> Tuple[Dataset, str]:
+    def _load_prediction_data(self, data_dir: str, create_dataset: bool = False) -> Tuple[Dataset, str]:
         """
         Loads and caches the prediction dataset without labels.
 
@@ -225,9 +206,7 @@ class FolderImageDataset(ImageDatasetBase):
         cached_checksum = self.load_checksum(checksum_key, checksum)
 
         if checksum != cached_checksum or create_dataset:
-            logger.info(
-                f"Changes detected in {section_name} data or forced re-creation. Processing data."
-            )
+            logger.info(f"Changes detected in {section_name} data or forced re-creation. Processing data.")
             dataset = load_dataset("imagefolder", data_dir=data_dir)["train"]
 
             cache_file_path = os.path.join(self.cache_dir, f"{section_name}.arrow")
@@ -255,13 +234,9 @@ class FolderImageDataset(ImageDatasetBase):
             self.class_labels = label_feature.names
             logger.info(f"Class labels initialized: {self.class_labels}")
         else:
-            logger.warning(
-                "The 'label' feature does not have names. Ensure the dataset is correctly formatted."
-            )
+            logger.warning("The 'label' feature does not have names. Ensure the dataset is correctly formatted.")
 
-    def _stratified_split(
-        self, dataset: Dataset, split_ratio: float
-    ) -> Tuple[Dataset, Dataset]:
+    def _stratified_split(self, dataset: Dataset, split_ratio: float) -> Tuple[Dataset, Dataset]:
         """
         Splits the dataset into stratified training and validation sets based on class labels.
 
@@ -277,9 +252,7 @@ class FolderImageDataset(ImageDatasetBase):
         labels = df["label"]
 
         # Стратифицированное разбиение по меткам
-        stratified_split = StratifiedShuffleSplit(
-            n_splits=1, test_size=split_ratio, random_state=42
-        )
+        stratified_split = StratifiedShuffleSplit(n_splits=1, test_size=split_ratio, random_state=42)
         train_indices, val_indices = next(stratified_split.split(df, labels))
 
         # Создаем подмножества, используя индексы
@@ -354,16 +327,12 @@ class FolderImageDataset(ImageDatasetBase):
             dataset_name (str): Name of the dataset (e.g., "Train", "Validation").
         """
         if "label" not in dataset.features:
-            logger.warning(
-                f"The dataset {dataset_name} does not contain a 'label' column."
-            )
+            logger.warning(f"The dataset {dataset_name} does not contain a 'label' column.")
             return
 
         labels = dataset["label"]
         if not labels:
-            logger.warning(
-                f"The {dataset_name} dataset is empty. No labels to process."
-            )
+            logger.warning(f"The {dataset_name} dataset is empty. No labels to process.")
             return
 
         # Count labels and calculate total
@@ -380,6 +349,4 @@ class FolderImageDataset(ImageDatasetBase):
             logger.info(f"  Class {label}: {count} samples ({percentage:.2f}%)")
 
         # Log the normalized distribution list
-        logger.info(
-            f"Normalized class distribution in {dataset_name}: {distribution_list}"
-        )
+        logger.info(f"Normalized class distribution in {dataset_name}: {distribution_list}")

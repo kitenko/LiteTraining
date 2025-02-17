@@ -3,10 +3,10 @@ Module: toolkit/csv_to_imagefolder.py
 
 This script organizes images into class-specific folders based on mappings provided
 in a CSV file. The CSV file should have at least two columns: one for image filenames
-and one for the corresponding class labels. 
+and one for the corresponding class labels.
 
 Usage:
-    python csv_to_imagefolder.py --image_dir <path_to_images> --csv_file <path_to_csv> --output_dir <path_to_output> 
+    python csv_to_imagefolder.py --image_dir <path_to_images> --csv_file <path_to_csv> --output_dir <path_to_output>
     [--filename_column <filename_column>] [--label_column <label_column>]
 
 Arguments:
@@ -17,9 +17,9 @@ Arguments:
     --label_column: (Optional) Column name in the CSV for image labels (default: "label").
 """
 
+import argparse
 import os
 import shutil
-import argparse
 
 import pandas as pd
 from tqdm import tqdm
@@ -49,9 +49,7 @@ def organize_images_by_class(
     data = pd.read_csv(csv_file)
 
     if filename_column not in data.columns or label_column not in data.columns:
-        raise ValueError(
-            f"CSV file must contain columns '{filename_column}' and '{label_column}'"
-        )
+        raise ValueError(f"CSV file must contain columns '{filename_column}' and '{label_column}'")
 
     # Progress bar for the loop
     print(f"Organizing images from {image_dir} into {output_dir}...")
@@ -75,9 +73,7 @@ def organize_images_by_class(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Organize images into class folders based on a CSV mapping file."
-    )
+    parser = argparse.ArgumentParser(description="Organize images into class folders based on a CSV mapping file.")
     parser.add_argument(
         "--image_dir",
         type=str,
@@ -90,9 +86,7 @@ if __name__ == "__main__":
         required=True,
         help="Path to the CSV file with mappings.",
     )
-    parser.add_argument(
-        "--output_dir", type=str, required=True, help="Path to the output directory."
-    )
+    parser.add_argument("--output_dir", type=str, required=True, help="Path to the output directory.")
     parser.add_argument(
         "--filename_column",
         type=str,

@@ -8,13 +8,13 @@ Features:
 - Updating callback directory paths dynamically.
 """
 
+import logging
 import os
 import re
-import logging
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from datetime import datetime
-from typing import Dict, List, Any, Union, Set, Optional, NamedTuple
+from typing import Any, Dict, List, NamedTuple, Optional, Set, Union
 
 import yaml
 from jsonargparse import Namespace
@@ -130,9 +130,7 @@ def find_keys_recursive(config: Namespace, keys_to_find: List[str]) -> Dict[str,
     return found_values
 
 
-def generate_folder_name(
-    found_values: Dict[str, Any], custom_folder_name: Optional[str]
-) -> str:
+def generate_folder_name(found_values: Dict[str, Any], custom_folder_name: Optional[str]) -> str:
     """
     Generates a folder name based on provided key-value pairs or a custom folder name.
 
@@ -176,14 +174,10 @@ def create_directory_structure(
             elif subdir == Subdirectory.LOGS:
                 logs_dir = dir_path
 
-    return DirectoryStructure(
-        base_dir=base_dir, checkpoints_dir=checkpoints_dir, logs_dir=logs_dir
-    )
+    return DirectoryStructure(base_dir=base_dir, checkpoints_dir=checkpoints_dir, logs_dir=logs_dir)
 
 
-def setup_directories(
-    config: Namespace, found_values: Dict[str, Any]
-) -> DirectoryStructure:
+def setup_directories(config: Namespace, found_values: Dict[str, Any]) -> DirectoryStructure:
     """
     Sets up directories for training, including base, checkpoints, and logs.
 
@@ -216,13 +210,9 @@ def setup_directories(
 
     # Create additional subdirectories if not tuning
     if is_tuning:
-        return DirectoryStructure(
-            base_dir=base_dir, checkpoints_dir=None, logs_dir=None
-        )
+        return DirectoryStructure(base_dir=base_dir, checkpoints_dir=None, logs_dir=None)
 
-    return create_directory_structure(
-        base_dir, [Subdirectory.CHECKPOINTS, Subdirectory.LOGS]
-    )
+    return create_directory_structure(base_dir, [Subdirectory.CHECKPOINTS, Subdirectory.LOGS])
 
 
 def setup_directories_optuna(base_dir: Path, number_trial: int) -> DirectoryStructure:
@@ -237,9 +227,7 @@ def setup_directories_optuna(base_dir: Path, number_trial: int) -> DirectoryStru
         DirectoryStructure: Struct containing paths for the trial's base, checkpoints, and logs directories.
     """
     trial_dir = base_dir / f"trial_{number_trial}"
-    return create_directory_structure(
-        trial_dir, [Subdirectory.CHECKPOINTS, Subdirectory.LOGS]
-    )
+    return create_directory_structure(trial_dir, [Subdirectory.CHECKPOINTS, Subdirectory.LOGS])
 
 
 def get_relative_path(*sub_dirs: str) -> Path:
@@ -269,9 +257,7 @@ def sanitize_folder_name(name: str) -> str:
     return sanitized_name
 
 
-def update_checkpoint_saver_dirpath(
-    callbacks: list[Any], new_dirpath: Union[str, Path]
-) -> None:
+def update_checkpoint_saver_dirpath(callbacks: list[Any], new_dirpath: Union[str, Path]) -> None:
     """
     Updates the 'dirpath' attribute for the PeriodicCheckpointSaver callback in the provided callbacks list.
 
@@ -288,9 +274,7 @@ def update_checkpoint_saver_dirpath(
                 setattr(callback.init_args, "dirpath", str(new_dirpath))
                 logger.info(f"Updated dirpath to: {new_dirpath}")
             else:
-                raise AttributeError(
-                    f"The callback {callback} does not have the 'init_args' attribute."
-                )
+                raise AttributeError(f"The callback {callback} does not have the 'init_args' attribute.")
             break
     else:
         logger.info("PeriodicCheckpointSaver was not found in the callbacks list.")
@@ -345,9 +329,7 @@ def save_yaml(data: dict, file_path: Path) -> None:
         data (dict): Data to save.
         file_path (Path): Path to the YAML file.
     """
-    file_path.parent.mkdir(
-        parents=True, exist_ok=True
-    )  # Ensure parent directories exist
+    file_path.parent.mkdir(parents=True, exist_ok=True)  # Ensure parent directories exist
     with file_path.open("w", encoding="utf-8") as file:
         yaml.dump(data, file, default_flow_style=False)
 

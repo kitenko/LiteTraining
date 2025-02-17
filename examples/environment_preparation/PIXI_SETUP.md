@@ -281,6 +281,42 @@ Then, you can execute `pylint` using:
 pixi run --environment dev pylint .
 ```
 
+## Working with Extras in Pixi 🚀
+
+When using PyPI dependencies in Pixi, you can specify additional options through the `extras` parameter. This allows you to install not only the core package but also optional dependencies that extend its functionality. For example, to install `black` with Jupyter support, you need to specify the extra option `"jupyter"`, since the corresponding package might not be available via Conda.
+
+---
+
+### Example Configuration 🔧
+
+To install `black` with Jupyter support, add the following entry in your configuration file (e.g., `pyproject.toml`) under the section for dev PyPI dependencies:
+
+```toml
+[tool.pixi.feature.dev.pypi-dependencies]
+black = { version = ">=25.1.0,<26", extras = ["jupyter"] }
+```
+
+---
+
+### Explanation of the Fields 📖
+
+- **`version`**: Sets the version of the package. In this example, `black` will be installed with a version that satisfies the condition `>=25.1.0,<26`.
+- **`extras`**: A list of additional options to install along with the core package. Here, `"jupyter"` ensures that `black` installs the dependencies required to work with Jupyter Notebook.
+
+---
+
+## When to Use Extras? 🤔
+
+### ✅ Extended Functionality
+If a package has optional features that are not needed for basic functionality, `extras` allow you to install these capabilities on demand.
+
+### 📦 Missing Packages in Conda
+If the desired package or its extended functionality isn’t available via Conda, `extras` let you leverage PyPI to install the necessary dependencies.
+
+### 📌 Dependency Management
+Using `extras`, you can centrally manage optional dependencies for specific environments (e.g., a dev environment that requires enhanced functionality).
+
+
 # 🤝 Activating a Pixi Environment
 
 To use a Pixi environment, it must be activated. Activation ensures that the correct dependencies and configurations are applied within the environment, preventing conflicts with system-wide installations.

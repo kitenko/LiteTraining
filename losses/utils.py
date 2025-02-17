@@ -12,9 +12,9 @@ Usage:
     Use `load_weights_from_file` to load class weights into your training pipeline.
 """
 
-import os
 import json
 import logging
+import os
 from typing import List, Union
 
 import yaml
