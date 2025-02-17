@@ -12,7 +12,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Build Docker Image
-        run: docker build -t my-lint-container -f Dockerfile .
+        run: docker build --build-arg ENVIRONMENT=dev -t my-lint-container .
 
       - name: Run Linter in Container
-        run: docker run --rm -it --gpus all -v my-lint-container bash -c "pixi run -e dev lint"
+        run: docker run --rm -it my-lint-container bash -c "pixi run -e dev lint"
