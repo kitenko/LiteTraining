@@ -9,8 +9,6 @@ RUN apt-get update && apt-get install -y \
 # Install Pixi (specific version)
 RUN curl -fsSL https://pixi.sh/install.sh | bash -s -- --version 0.41.3
 
-RUN pixi install
-
 # Make Pixi available in $PATH
 ENV PATH="/root/.pixi/bin:$PATH"
 
