@@ -1762,7 +1762,7 @@ packages:
 - pypi: .
   name: app
   version: 0.1.0
-  sha256: 0ee5bc6e344cc1200a466968848cd67ba5c7307143b5cd115b56047b271cfb7c
+  sha256: c4b244a4235367c091683ec07b350abdcc4e4558dc3c23cc9a1c5135f100b51c
   requires_dist:
   - cylimiter==0.4.2
   - jsonargparse[signatures]

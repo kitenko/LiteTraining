@@ -20,7 +20,7 @@ app = { path = ".", editable = true }
 
 
 [tool.pixi.tasks]
-black = "black ."
+black = "black . --verbose"
 pylint = "pylint ."
 mypy = "mypy ."
 isort = "isort ."
