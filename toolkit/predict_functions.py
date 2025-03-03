@@ -1,11 +1,10 @@
+"""_summary_"""
+
 import pandas as pd
 
 
 def run_predict_to_csv(predictions: list, class_labels: list) -> None:
-    """
-    Run prediction process, load sample submission, fill predictions, and save to CSV.
-    """
-
+    """Run prediction process, load sample submission, fill predictions, and save to CSV."""
     predicted_indices = [pred["preds"].item() for pred in predictions]
     predicted_labels = [class_labels[idx] for idx in predicted_indices]
 

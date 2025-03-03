@@ -1,5 +1,4 @@
-"""
-Module: losses/focal_loss.py
+"""Module: losses/focal_loss.py
 
 This module provides an implementation of the Weighted Focal Loss, which is a variant
 of the Focal Loss that supports class weights loaded from an external file. The loss
@@ -14,47 +13,36 @@ import logging
 import torch
 from torch import nn
 
-from losses.utils import load_weights_from_file
+from losses.utils import load_class_weights
 
 logger = logging.getLogger(__name__)
 
 
 class WeightedFocalLoss(nn.Module):
-    """
-    Focal Loss with support for class weights loaded from an external file.
-    """
+    """Focal Loss with support for class weights loaded from an external file."""
 
     def __init__(self, weight_file=None, gamma=2.0, reduction="mean", **kwargs):
-        """
-        Args:
-            weight_file (str, optional): Path to a file containing class weights (JSON or YAML format).
-            gamma (float): Focusing parameter.
-            reduction (str): 'none' | 'mean' | 'sum'. Specifies the reduction to apply to the output.
-            **kwargs: Additional arguments for CrossEntropyLoss.
+        """Args:
+        weight_file (str, optional): Path to a file containing class weights (JSON or YAML format).
+        gamma (float): Focusing parameter.
+        reduction (str): 'none' | 'mean' | 'sum'. Specifies the reduction to apply to the output.
+        **kwargs: Additional arguments for CrossEntropyLoss.
+
         """
         super().__init__()
         self.gamma = gamma
         self.reduction = reduction
 
         # Load weights from file
-        weights = None
-        if weight_file is not None:
-            logger.info(f"Attempting to load weights from: {weight_file}")
-            weights = load_weights_from_file(weight_file)
-
-        if weights is not None:
-            weights = torch.tensor(weights, dtype=torch.float)
-            logger.info(f"Weights successfully loaded: {weights}")
-        else:
-            logger.warning("No weights provided. Using uniform weighting.")
+        weights = load_class_weights(weight_file)
 
         self.weights = weights
 
     def forward(self, logits, targets):
-        """
-        Args:
-            logits (torch.Tensor): Logits from the model (shape: [batch_size, num_classes]).
-            targets (torch.Tensor): Ground truth class indices (shape: [batch_size]).
+        """Args:
+        logits (torch.Tensor): Logits from the model (shape: [batch_size, num_classes]).
+        targets (torch.Tensor): Ground truth class indices (shape: [batch_size]).
+
         """
         # Compute softmax probabilities
         probs = torch.softmax(logits, dim=1)
@@ -85,8 +73,6 @@ class WeightedFocalLoss(nn.Module):
         return focal_loss
 
     def to(self, *args, **kwargs):
-        """
-        Override the `.to` method to handle weights properly.
-        """
+        """Override the `.to` method to handle weights properly."""
         self.weights = self.weights.to(*args, **kwargs) if self.weights is not None else None
         return super().to(*args, **kwargs)

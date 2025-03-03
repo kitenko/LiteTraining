@@ -12,7 +12,7 @@ requires = ["hatchling"]
 channels = ["conda-forge"]
 platforms = ["linux-64"]
 
-[tool.pixi.system-requirements]
+[tool.pixi.feature.gpu.system-requirements]
 cuda = "12.4"
 
 [tool.pixi.pypi-dependencies]
@@ -20,7 +20,7 @@ app = { path = ".", editable = true }
 
 
 [tool.pixi.tasks]
-black = "black ."
+black = "black . --verbose"
 pylint = "pylint ."
 mypy = "mypy ."
 isort = "isort ."
@@ -28,12 +28,12 @@ lint = { depends-on = ["black", "isort", "pylint", "mypy"] }
 
 
 [tool.pixi.environments]
-default = { solve-group = "default" }
-dev = { features = ["dev"], solve-group = "default" }
-
+default = { features = ["gpu"], solve-group = "default" }
+cpu = { features = ["cpu"], solve-group = "cpu" }
+dev = { features = ["dev", "cpu"], solve-group = "cpu" }
+dev-gpu = { features = ["dev", "gpu"], solve-group = "default" }
 
 [tool.pixi.dependencies]
-pytorch-gpu = "==2.5.1"
 torchvision = "==0.20.1"
 torchaudio = "==2.5.1"
 pytorch-lightning = "==2.5.0"
@@ -44,6 +44,13 @@ python-dotenv = "==1.0.1"
 albumentations = "==2.0.4"
 scikit-learn = "==1.6.1"
 seaborn = "==0.13.2"
+numba = "==0.61.0"
+
+[tool.pixi.feature.gpu.dependencies]
+pytorch-gpu = "==2.5.1"
+
+[tool.pixi.feature.cpu.dependencies]
+pytorch = "==2.5.1"
 
 [tool.pixi.feature.dev.dependencies]
 pylint = "==3.3.4"
