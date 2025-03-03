@@ -1,5 +1,4 @@
-"""
-This module defines various image augmentations and a dataset transformation class
+"""This module defines various image augmentations and a dataset transformation class
 for applying augmentations to batches of images.
 
 The module is built on top of the `albumentations` library and extends its
@@ -32,34 +31,35 @@ from albumentations.core.transforms_interface import BasicTransform
 
 # pylint: disable=too-few-public-methods
 class TransformDataset:
-    """
-    Applies a sequence of transformations to each image in a Hugging Face Dataset.
+    """Applies a sequence of transformations to each image in a Hugging Face Dataset.
     Used for preparing data for training, validation, and testing.
 
     Attributes:
         transformations (Compose): A composition of transformations to apply to each image.
+
     """
 
     def __init__(self, transformations: List[Union[BasicTransform, BaseCompose]]):
-        """
-        Initializes the TransformDataset with specified transformations.
+        """Initializes the TransformDataset with specified transformations.
 
         Args:
             transformations (List[BasicTransform]): List of transformations to be applied to all images.
+
         """
         self.transformations = Compose(transformations)
 
     def __call__(
-        self, example_batch: Dict[str, Union[List[Any], np.ndarray]]
+        self,
+        example_batch: Dict[str, Union[List[Any], np.ndarray]],
     ) -> Dict[str, Union[List[Any], np.ndarray]]:
-        """
-        Applies transformations to each image in a batch.
+        """Applies transformations to each image in a batch.
 
         Args:
             example_batch (dict): A batch of examples with 'image' entries.
 
         Returns:
             dict: Transformed dataset with updated 'pixel_values'.
+
         """
         example_batch["pixel_values"] = [
             self.transformations(image=np.array(image.convert("RGB")))["image"] for image in example_batch["image"]
@@ -68,8 +68,7 @@ class TransformDataset:
 
 
 class Resize(AlbumentationsResize):
-    """
-    Resizes an image to the specified height and width with interpolation.
+    """Resizes an image to the specified height and width with interpolation.
 
     Args:
         height (int): Target height.
@@ -77,6 +76,7 @@ class Resize(AlbumentationsResize):
         interpolation (int): Interpolation method.
         always_apply (bool): Whether to apply always.
         p (float): Probability of applying.
+
     """
 
     def __init__(
@@ -84,21 +84,18 @@ class Resize(AlbumentationsResize):
         height: int,
         width: int,
         interpolation: int = 1,
-        always_apply: bool = False,
         p: float = 1.0,
     ):
         super().__init__(
             height=height,
             width=width,
             interpolation=interpolation,
-            always_apply=always_apply,
             p=p,
         )
 
 
 class Normalize(AlbumentationsNormalize):
-    """
-    Normalizes pixel values based on mean, std, and pixel value range.
+    """Normalizes pixel values based on mean, std, and pixel value range.
 
     Args:
         mean (Tuple[float, float, float]): Mean values for each channel.
@@ -107,6 +104,7 @@ class Normalize(AlbumentationsNormalize):
         normalization (Literal): Normalization type.
         always_apply (bool): Whether to apply always.
         p (float): Probability of applying.
+
     """
 
     def __init__(
@@ -115,14 +113,12 @@ class Normalize(AlbumentationsNormalize):
         std: Tuple[float, float, float] = (0.229, 0.224, 0.225),
         max_pixel_value: float = 255.0,
         normalization: Literal["standard", "image", "image_per_channel", "min_max", "min_max_per_channel"] = "standard",
-        always_apply: bool = False,
         p: float = 1.0,
     ):
         super().__init__(
             mean=mean,
             std=std,
             max_pixel_value=max_pixel_value,
-            always_apply=always_apply,
             p=p,
             normalization=normalization,
         )
@@ -131,8 +127,8 @@ class Normalize(AlbumentationsNormalize):
 class RandomCrop(AlbumentationsRandomCrop):
     """Randomly crops the image to the specified height and width."""
 
-    def __init__(self, height: int, width: int, always_apply: bool = False, p: float = 0.5):
-        super().__init__(height=height, width=width, always_apply=always_apply, p=p)
+    def __init__(self, height: int, width: int, p: float = 0.5):
+        super().__init__(height=height, width=width, p=p)
 
 
 class HorizontalFlip(AlbumentationsHorizontalFlip):
@@ -172,8 +168,8 @@ class RandomBrightnessContrast(AlbumentationsRandomBrightnessContrast):
 class GaussNoise(AlbumentationsGaussNoise):
     """Adds random Gaussian noise to the image."""
 
-    def __init__(self, var_limit: Tuple[float, float] = (10.0, 50.0), p: float = 0.5):
-        super().__init__(var_limit=var_limit, p=p)
+    def __init__(self, std_range: Tuple[float, float] = (10.0, 50.0), p: float = 0.5) -> None:
+        super().__init__(std_range=std_range, p=p)
 
 
 class GaussianBlur(AlbumentationsGaussianBlur):
@@ -216,13 +212,11 @@ class LongestMaxSize(AlbumentationsLongestMaxSize):
         self,
         max_size: int,
         interpolation: int = 1,
-        always_apply: bool = False,
         p: float = 1.0,
     ):
         super().__init__(
             max_size=max_size,
             interpolation=interpolation,
-            always_apply=always_apply,
             p=p,
         )
 
@@ -235,15 +229,11 @@ class PadIfNeeded(AlbumentationsPadIfNeeded):
         min_height: int,
         min_width: int,
         border_mode: int = 0,
-        value: Union[int, Tuple[int, int, int]] = 0,
-        always_apply: bool = False,
         p: float = 1.0,
     ):
         super().__init__(
             min_height=min_height,
             min_width=min_width,
             border_mode=border_mode,
-            value=value,
-            always_apply=always_apply,
             p=p,
         )

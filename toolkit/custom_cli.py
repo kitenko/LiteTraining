@@ -168,7 +168,7 @@ class CustomLightningCLI(LightningCLI):
         setup_logging_and_save_config(config, base_dir, logs_dir, checkpoints_dir)
         logger.info("Training data and logs will be stored in: %s", base_dir)
 
-    def set_seed(self, config):
+    def set_seed(self, config: Namespace):
         """Sets random seed for reproducibility."""
         seed_everything(config.get("seed_everything"))
 

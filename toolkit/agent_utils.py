@@ -1,3 +1,5 @@
+"""Module with utilities for instantiating classes from configuration and loading model checkpoints."""
+
 import importlib
 from typing import List, Optional
 
