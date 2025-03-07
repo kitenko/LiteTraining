@@ -20,7 +20,7 @@ app = { path = ".", editable = true }
 
 
 [tool.pixi.tasks]
-black = "black . --verbose"
+black = "black ."
 pylint = "pylint ."
 mypy = "mypy ."
 isort = "isort ."
@@ -45,6 +45,7 @@ albumentations = "==2.0.4"
 scikit-learn = "==1.6.1"
 seaborn = "==0.13.2"
 numba = "==0.61.0"
+clearml = ">=1.17.1,<2"
 
 [tool.pixi.feature.gpu.dependencies]
 pytorch-gpu = "==2.5.1"

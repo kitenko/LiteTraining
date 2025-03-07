@@ -1,5 +1,4 @@
-"""
-This is the main module for running the ImageClassificationCLI command with ImageClassificationModule and
+"""This is the main module for running the ImageClassificationCLI command with ImageClassificationModule and
 ImageDataModule.
 
 It sets up a fault handler and starts the CLI for configuring and running image classification models.
@@ -10,6 +9,7 @@ import logging
 from typing import Callable, Optional
 
 from toolkit.agent_utils import load_checkpoint
+from toolkit.clearml_utils import init_clearml_task
 from toolkit.custom_cli import CustomLightningCLI
 from toolkit.predict_functions import run_predict_to_csv
 
@@ -21,17 +21,21 @@ logger = logging.getLogger(__name__)
 
 
 def run() -> None:
-    """
-    Main entry point for running the CLI with the specified model and dataset.
+    """Main entry point for running the CLI with the specified model and dataset.
     It handles tuning, testing, validation, training, or prediction processes based on the provided configuration in the
     CLI.
     """
+    clear_ml_task = init_clearml_task()
+
     try:
         # Instantiate the custom CLI for image classification
         cli = CustomLightningCLI(
             save_config_callback=None,
             run=False,
         )
+
+        if clear_ml_task:
+            clear_ml_task.set_name(cli.base_dir.name)
 
         # Handle different processes like tuning, testing, validation, training, or prediction
         handle_cli_process(cli)
@@ -42,12 +46,12 @@ def run() -> None:
 
 
 def handle_cli_process(cli: CustomLightningCLI) -> None:
-    """
-    Handle different CLI processes such as tuning, testing, validation, training, or prediction
+    """Handle different CLI processes such as tuning, testing, validation, training, or prediction
     based on the provided CLI configuration.
 
     Args:
         cli (CustomLightningCLI): The custom CLI instance used to run the processes.
+
     """
     ckpt_path: Optional[str] = cli.config.get("ckpt_path", None)
 
@@ -68,13 +72,13 @@ def run_predict(
     ckpt_path: Optional[str],
     predict_fn: Callable = run_predict_to_csv,
 ) -> None:
-    """
-    Run prediction process with a custom prediction function.
+    """Run prediction process with a custom prediction function.
 
     Args:
         cli (CustomLightningCLI): The custom CLI instance with model and datamodule.
         ckpt_path (Optional[str]): Path to the checkpoint file to load for prediction, if available.
         predict_fn (Callable): Custom function to process predictions and save them.
+
     """
     # Run predictions using PyTorch Lightning's predict method
     predictions = cli.trainer.predict(cli.model, datamodule=cli.datamodule, ckpt_path=ckpt_path)
@@ -87,44 +91,44 @@ def run_predict(
 
 
 def run_optuna(cli: CustomLightningCLI) -> None:
-    """
-    Run Optuna hyperparameter tuning process.
+    """Run Optuna hyperparameter tuning process.
 
     Args:
         cli (MyLightningCLI): The custom Lightning CLI instance with Optuna configuration.
+
     """
     cli.run_optuna()
 
 
 def run_test(cli: CustomLightningCLI, ckpt_path: Optional[str]) -> None:
-    """
-    Run testing process with the specified model and datamodule, using an optional checkpoint.
+    """Run testing process with the specified model and datamodule, using an optional checkpoint.
 
     Args:
         cli (ImageClassificationCLI): The custom CLI instance with the test configuration.
         ckpt_path (Optional[str]): Path to the checkpoint file to load for testing, if available.
+
     """
     cli.trainer.test(cli.model, cli.datamodule, ckpt_path=ckpt_path)
 
 
 def run_validation(cli: CustomLightningCLI, ckpt_path: Optional[str]) -> None:
-    """
-    Run validation process with the specified model and datamodule, using an optional checkpoint.
+    """Run validation process with the specified model and datamodule, using an optional checkpoint.
 
     Args:
         cli (ImageClassificationCLI): The custom CLI instance with the validation configuration.
         ckpt_path (Optional[str]): Path to the checkpoint file to load for validation, if available.
+
     """
     cli.trainer.validate(cli.model, cli.datamodule, ckpt_path=ckpt_path)
 
 
 def run_training(cli: CustomLightningCLI, ckpt_path: Optional[str]) -> None:
-    """
-    Run the training process, with an option to load only the model's weights without the optimizer state.
+    """Run the training process, with an option to load only the model's weights without the optimizer state.
 
     Args:
         cli (ImageClassificationCLI): The custom CLI instance with the training configuration.
         ckpt_path (Optional[str]): Path to the checkpoint file to load for training, if available.
+
     """
     if cli.config.experiment.get("only_weights_load", False):
         strict = cli.config.experiment.get("strict_weights", False)

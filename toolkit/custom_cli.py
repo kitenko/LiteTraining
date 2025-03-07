@@ -22,21 +22,22 @@ from toolkit.folder_manager import (
 from toolkit.optuna_tuner import OptunaConfig, OptunaTuner
 
 logger = logging.getLogger(__name__)
-logger.propagate = True  # Enable logging handler propagation
+logger.propagate = True  # Enable logging h andler propagation
 
 
 class CustomLightningCLI(LightningCLI):
-    """A custom extension of PyTorch LightningCLI that introduces additional functionality
-    for managing checkpoint directories, logging, and configuration before training starts.
+    """A custom extension of PyTorch LightningCLI.
 
-    This class dynamically configures directories for storing training data, checkpoints,
-    and logs, sets up logging, and saves the training configuration to a YAML file.
+    This class introduces additional functionality for managing checkpoint directories,
+    logging, and configuration before training starts. It dynamically configures directories
+    for storing training data, checkpoints, and logs, sets up logging, and saves the training
+    configuration to a YAML file.
     """
 
     config: Namespace
 
-    def add_arguments_to_parser(self, parser: LightningArgumentParser):
-        """Adds additional arguments for Optuna configuration and custom experiment options to the argument parser.
+    def add_arguments_to_parser(self, parser: LightningArgumentParser) -> None:
+        """Add additional arguments for Optuna configuration and custom experiment options to the argument parser.
 
         Args:
             parser (LightningArgumentParser): The argument parser to add arguments to.

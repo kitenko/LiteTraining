@@ -1,9 +1,11 @@
 """Module with utilities for instantiating classes from configuration and loading model checkpoints."""
 
 import importlib
+import os
 from typing import List, Optional
 
 import torch
+import yaml
 from jsonargparse import Namespace
 from torch.nn import Module
 
@@ -76,3 +78,21 @@ def load_checkpoint(
         checkpoint = torch.load(ckpt_path, map_location=torch.device("cpu"))
         # Load state_dict into the model
         model.load_state_dict(checkpoint.get("state_dict", checkpoint), strict=strict)
+
+
+def load_clearml_config(config_path: str = "config/clearml.yaml") -> dict:
+    """Load the ClearML configuration from a YAML file.
+
+    Args:
+        config_path (str): The path to the ClearML YAML configuration file.
+                           Defaults to "config/clearml.yaml".
+
+    Returns:
+        dict: A dictionary containing the ClearML configuration. If the file does not exist,
+              returns an empty dictionary.
+
+    """
+    if os.path.exists(config_path):
+        with open(config_path, encoding="utf-8") as f:
+            return yaml.safe_load(f)
+    return {}

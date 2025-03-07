@@ -8,6 +8,7 @@ services:
     volumes:
       - .:/app
     tty: true
+    network_mode: host
     deploy:
       resources:
         reservations:
