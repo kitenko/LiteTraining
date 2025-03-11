@@ -32,6 +32,7 @@ default = { features = ["gpu"], solve-group = "default" }
 cpu = { features = ["cpu"], solve-group = "cpu" }
 dev = { features = ["dev", "cpu"], solve-group = "cpu" }
 dev-gpu = { features = ["dev", "gpu"], solve-group = "default" }
+clearml = { features = ["clearml"], solve-group = "clearml", no-default-feature = true}
 
 [tool.pixi.dependencies]
 torchvision = "==0.20.1"
@@ -60,6 +61,10 @@ mypy = "==1.15.0"
 types-pyyaml = "==6.0.12.20241230"
 pytest-mock = "==3.14.0"
 isort = "==6.0.0"
+
+[tool.pixi.feature.clearml.dependencies]
+clearml-agent = "==1.9.0"
+setuptools = "==75.8.0"
 
 [tool.pixi.feature.dev.pypi-dependencies]
 black = {version = ">=25.1.0,<26", extras = ["jupyter"]}
