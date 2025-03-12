@@ -30,9 +30,9 @@ def init_clearml_task() -> Optional[Task]:
     if clear_ml_config.get("docker_image"):
         task.set_base_docker(clear_ml_config.get("docker_image"))
 
-    if clear_ml_config.get("execute_remote_task"):
-        if task.running_locally():
-            task.execute_remotely(queue_name="pixi_tasks", clone=True, exit_process=True)
+    # if clear_ml_config.get("execute_remote_task"):
+    #     if task.running_locally():
+    #         task.execute_remotely(queue_name="pixi_tasks", clone=True, exit_process=True)
 
     logger.info("ClearML task initialized: %s", task.id)
     return task
