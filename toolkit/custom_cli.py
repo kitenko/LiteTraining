@@ -24,6 +24,8 @@ from toolkit.optuna_tuner import OptunaConfig, OptunaTuner
 logger = logging.getLogger(__name__)
 logger.propagate = True  # Enable logging h andler propagation
 
+import pprint
+
 
 class CustomLightningCLI(LightningCLI):
     """A custom extension of PyTorch LightningCLI.
@@ -156,6 +158,8 @@ class CustomLightningCLI(LightningCLI):
         self.config = config
 
         # self.config = connect_clearml_configuration(config)
+
+        pprint.pprint(self.config)
 
         self.set_seed(config)
 
