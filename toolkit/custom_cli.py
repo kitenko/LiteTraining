@@ -14,7 +14,6 @@ from jsonargparse import Namespace
 from pytorch_lightning import seed_everything
 from pytorch_lightning.cli import LightningArgumentParser, LightningCLI
 
-from toolkit.clearml_utils import connect_clearml_configuration
 from toolkit.folder_manager import (
     find_keys_recursive,
     setup_directories,
@@ -154,7 +153,9 @@ class CustomLightningCLI(LightningCLI):
         """Configures directories, sets seeds, and saves configurations before instantiating classes."""
         config: Namespace = self.config
 
-        self.config = connect_clearml_configuration(config)
+        self.config = config
+
+        # self.config = connect_clearml_configuration(config)
 
         self.set_seed(config)
 
