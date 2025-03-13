@@ -1,0 +1,6 @@
+# clearml.yaml
+use_clearml: true
+project: "butterfly_classification"
+output_uri: true
+execute_remote_task: true
+docker_image: "litetraining-lightnin_classifier:latest"
