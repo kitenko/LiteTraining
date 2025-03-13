@@ -155,6 +155,8 @@ class CustomLightningCLI(LightningCLI):
 
         self.config = config
 
+        print("start_before_instantiate_classes")
+
         # self.config = connect_clearml_configuration(config)
 
         self.set_seed(config)
