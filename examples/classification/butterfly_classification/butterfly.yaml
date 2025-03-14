@@ -290,12 +290,12 @@ trainer:
               <<: *metric_common_args
 
     # Progress bar for training
-    - class_path: pytorch_lightning.callbacks.TQDMProgressBar
+    - class_path: lightning.pytorch.callbacks.TQDMProgressBar
       init_args:
         refresh_rate: 5                             # Update rate for progress bar
 
     # Early stopping configuration
-    - class_path: pytorch_lightning.callbacks.EarlyStopping
+    - class_path: lightning.pytorch.callbacks.EarlyStopping
       init_args:
         monitor: "validation_f1_score"              # Metric to monitor for stopping
         mode: "max"                                 # Stop when maximizing the metric

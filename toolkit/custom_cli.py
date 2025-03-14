@@ -11,8 +11,8 @@ import logging
 from typing import Any, Dict, List
 
 from jsonargparse import Namespace
-from pytorch_lightning import seed_everything
-from pytorch_lightning.cli import LightningArgumentParser, LightningCLI
+from lightning import seed_everything
+from lightning.pytorch.cli import LightningArgumentParser, LightningCLI
 
 from toolkit.folder_manager import (
     find_keys_recursive,

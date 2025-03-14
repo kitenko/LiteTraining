@@ -1,5 +1,4 @@
-"""
-This module contains the OptunaTuner class, which manages hyperparameter optimization using Optuna.
+"""This module contains the OptunaTuner class, which manages hyperparameter optimization using Optuna.
 
 The OptunaTuner class handles the entire process of running the optimization study, including
 saving the results of each trial and final study results, as well as updating configuration
@@ -14,9 +13,9 @@ from typing import Any, Dict, Literal, Optional, Tuple
 
 import optuna
 from jsonargparse import Namespace
+from lightning.pytorch.cli import LightningCLI
 from optuna import Study, Trial
 from optuna.trial import FrozenTrial
-from pytorch_lightning.cli import LightningCLI
 
 from toolkit.folder_manager import (
     load_yaml,
@@ -30,8 +29,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class OptunaConfig:
-    """
-    Configuration for the Optuna hyperparameter tuning.
+    """Configuration for the Optuna hyperparameter tuning.
 
     Args:
         tune (bool): Whether to enable hyperparameter tuning.
@@ -41,6 +39,7 @@ class OptunaConfig:
         search_spaces (Dict[str, Any]): Hyperparameter search spaces.
         restore_search (Optional[str]): Path to a previously saved Optuna study results folder.
         storage (Optional[str]): Path or URL to the Optuna storage backend (e.g., SQLite database).
+
     """
 
     tune: bool = False
@@ -53,8 +52,7 @@ class OptunaConfig:
 
 
 class OptunaTuner:
-    """
-    Handles the logic for hyperparameter optimization using Optuna.
+    """Handles the logic for hyperparameter optimization using Optuna.
 
     This class runs the optimization process, manages the Optuna study, and handles the saving of trial and study
     results.
@@ -65,19 +63,18 @@ class OptunaTuner:
         config: Namespace,
         base_dir: Path,
     ) -> None:
-        """
-        Initializes the OptunaTuner with the configuration, model class, data module class, and trainer class.
+        """Initializes the OptunaTuner with the configuration, model class, data module class, and trainer class.
 
         Args:
             config (Namespace): The configuration object from jsonargparse.
             base_dir (str): The name of the folder generated for this experiment.
+
         """
         self.config = config
         self.base_dir = base_dir
 
     def run_optimization(self) -> None:
-        """
-        Runs the Optuna optimization process and manages the study.
+        """Runs the Optuna optimization process and manages the study.
 
         This method initializes or loads an Optuna study, adjusts the number of remaining trials,
         and logs the results after the optimization is complete.
@@ -144,8 +141,7 @@ class OptunaTuner:
         config: Namespace,
         keep_keys: Tuple[str, ...] = ("model", "data", "trainer"),
     ) -> Namespace:
-        """
-        Retains only the specified top-level keys in the Namespace object, removing all others.
+        """Retains only the specified top-level keys in the Namespace object, removing all others.
 
         Args:
             config (Namespace): The original Namespace object.
@@ -153,6 +149,7 @@ class OptunaTuner:
 
         Returns:
             Namespace: The filtered Namespace object with only the specified keys.
+
         """
         # Convert Namespace to dictionary
         args_dict = vars(config)
@@ -162,8 +159,7 @@ class OptunaTuner:
         return Namespace(**filtered_dict)
 
     def objective(self, trial: Trial, metric: str) -> float:
-        """
-        Objective function for Optuna to optimize the selected metric.
+        """Objective function for Optuna to optimize the selected metric.
 
         Args:
             trial (optuna.trial.Trial): The Optuna trial.
@@ -171,6 +167,7 @@ class OptunaTuner:
 
         Returns:
             float: The value of the metric for this trial.
+
         """
         hparams = self.get_hparams_from_trial(trial)
         base_dir, checkpoints_dir, logs_dir = setup_directories_optuna(self.base_dir, trial.number)
@@ -196,14 +193,14 @@ class OptunaTuner:
         return val_result.item()
 
     def get_hparams_from_trial(self, trial: Trial) -> Dict[str, Any]:
-        """
-        Extracts hyperparameters from the Optuna trial based on the search spaces defined in the config.
+        """Extracts hyperparameters from the Optuna trial based on the search spaces defined in the config.
 
         Args:
             trial (optuna.trial.Trial): The Optuna trial.
 
         Returns:
             dict: A dictionary of sampled hyperparameters.
+
         """
         hparams = {}
         search_spaces = self.config.optuna.search_spaces
@@ -229,12 +226,12 @@ class OptunaTuner:
 
     def save_trial_results(self, study: Study, trial: FrozenTrial) -> None:
         # pylint: disable=unused-argument
-        """
-        Saves the results of each Optuna trial to a YAML file.
+        """Saves the results of each Optuna trial to a YAML file.
 
         Args:
             study (optuna.study.Study): The current Optuna study.
             trial (optuna.trial.FrozenTrial): The current trial.
+
         """
         trial_results_path = self.base_dir / "optuna_results.yaml"
 
@@ -255,11 +252,11 @@ class OptunaTuner:
         logger.info(f"Trial {trial.number} results saved to: {trial_results_path}")
 
     def save_study_results(self, study: Study) -> None:
-        """
-        Saves the final results of all Optuna trials to a YAML file.
+        """Saves the final results of all Optuna trials to a YAML file.
 
         Args:
             study (optuna.study.Study): The Optuna study instance.
+
         """
         final_results_path = self.base_dir / "optuna_final_results.yaml"
 
@@ -281,8 +278,7 @@ class OptunaTuner:
         logger.info(f"Final Optuna results saved to: {final_results_path}")
 
     def update_config_with_hparams(self, config: Namespace, hparams: Dict[str, Any]):
-        """
-        Updates the configuration object with the sampled hyperparameters from the trial.
+        """Updates the configuration object with the sampled hyperparameters from the trial.
 
         This method navigates through nested configuration parameters and updates
         them with the new values from Optuna's trial results. It supports both nested
@@ -291,6 +287,7 @@ class OptunaTuner:
         Args:
             config (Namespace): The configuration object to update.
             hparams (Dict[str, Any]): The dictionary of sampled hyperparameters.
+
         """
         for param_path, value in hparams.items():
             keys = param_path.split(".")

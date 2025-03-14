@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 import torch
-from pytorch_lightning import LightningModule
+from lightning import LightningModule
 from torchmetrics import Metric
 from torchmetrics.functional import confusion_matrix
 

@@ -1,5 +1,4 @@
-"""
-This module provides the `ImageDataModule` class for managing image datasets
+"""This module provides the `ImageDataModule` class for managing image datasets
 in PyTorch Lightning workflows.
 
 Key features:
@@ -16,7 +15,7 @@ from typing import Callable, List, Optional
 from albumentations.core.composition import BaseCompose
 from albumentations.core.transforms_interface import BasicTransform
 from datasets import Dataset, concatenate_datasets
-from pytorch_lightning import LightningDataModule
+from lightning import LightningDataModule
 from torch.utils.data import DataLoader
 
 from dataset_modules.augmentations import TransformDataset
@@ -28,8 +27,7 @@ logger = logging.getLogger(__name__)
 
 # pylint: disable=too-many-instance-attributes, too-many-arguments, too-many-positional-arguments
 class ImageDataModule(LightningDataModule):
-    """
-    LightningDataModule for managing image datasets and DataLoader setup, with options for data augmentation,
+    """LightningDataModule for managing image datasets and DataLoader setup, with options for data augmentation,
     normalization, caching, and automatic train/validation/test splitting.
     """
 
@@ -46,8 +44,7 @@ class ImageDataModule(LightningDataModule):
         cache_dir: str = "./data/cache",
         auto_split_data: bool = False,
     ):
-        """
-        Initializes the ImageDataModule with datasets, transformations, and split configurations.
+        """Initializes the ImageDataModule with datasets, transformations, and split configurations.
 
         Args:
             augmentations (List[BasicTransform]): List of image augmentations for the training data.
@@ -60,6 +57,7 @@ class ImageDataModule(LightningDataModule):
             test_split (Optional[float], optional): Fraction of data reserved for testing, if applicable.
             cache_dir (str, optional): Directory to store cached datasets. Defaults to './data/cache'.
             auto_split_data (bool, optional): If True, splits data automatically into train/val/test sets.
+
         """
         super().__init__()
         self.dataset_classes = dataset_classes
@@ -78,11 +76,11 @@ class ImageDataModule(LightningDataModule):
         self.cache_dir = cache_dir
 
     def setup(self, stage: Optional[str] = None) -> None:
-        """
-        Initializes datasets for the specified stage (fit, validate, test, or predict) and splits data as necessary.
+        """Initializes datasets for the specified stage (fit, validate, test, or predict) and splits data as necessary.
 
         Args:
             stage (Optional[str]): Current stage, such as 'fit', 'validate', 'test', or 'predict'.
+
         """
         logger.info("Setting up datasets for stage: %s", stage)
         for class_dataset in self.dataset_classes:
@@ -91,7 +89,7 @@ class ImageDataModule(LightningDataModule):
         if self.auto_split_data:
             logger.info("Automatically splitting data into train/val/test sets.")
             combined_dataset = self.process_dataset(
-                concatenate_datasets([dataset.get_full_dataset() for dataset in self.dataset_classes])
+                concatenate_datasets([dataset.get_full_dataset() for dataset in self.dataset_classes]),
             )
             self.split_dataset(combined_dataset)
             return
@@ -104,22 +102,21 @@ class ImageDataModule(LightningDataModule):
             raise ValueError(f"Unrecognized stage: {stage}. Expected one of 'fit', 'validate', 'test', or 'predict'.")
 
     def _setup_predict_data(self) -> None:
-        """
-        Sets up the dataset for prediction/inference.
-        """
+        """Sets up the dataset for prediction/inference."""
         logger.info("Setting up data for prediction stage.")
         # Load prediction data from each dataset class
         prediction_datasets = [dataset.get_prediction_data() for dataset in self.dataset_classes]
         self.predict_dataset = self.process_dataset(
-            concatenate_datasets(prediction_datasets), stage=DatasetSplit.PREDICT
+            concatenate_datasets(prediction_datasets),
+            stage=DatasetSplit.PREDICT,
         )
 
     def _process_stage_data(self, stage: str) -> None:
-        """
-        Processes datasets for the specified stage ('fit', 'validate', or 'test').
+        """Processes datasets for the specified stage ('fit', 'validate', or 'test').
 
         Args:
             stage (str): The stage for data processing.
+
         """
         logger.info("Processing data for stage: %s", stage)
         if stage == "fit":
@@ -131,14 +128,14 @@ class ImageDataModule(LightningDataModule):
             self.test_dataset = self._load_and_process_datasets(DatasetSplit.TEST)
 
     def _load_and_process_datasets(self, dataset_type: DatasetSplit) -> Dataset:
-        """
-        Loads and processes datasets based on the specified type (train, val, or test).
+        """Loads and processes datasets based on the specified type (train, val, or test).
 
         Args:
             dataset_type (DatasetSplit): Type of dataset to load and process.
 
         Returns:
             Dataset: The processed dataset for the given type.
+
         """
         logger.info("Loading and processing datasets for type: %s", dataset_type.value)
         dataset_getter = {
@@ -151,8 +148,7 @@ class ImageDataModule(LightningDataModule):
         return self.process_dataset(concatenate_datasets(datasets), stage=dataset_type)
 
     def process_dataset(self, dataset: Dataset, stage: DatasetSplit = DatasetSplit.FULL) -> Dataset:
-        """
-        Applies preprocessing transformations and caching to the dataset.
+        """Applies preprocessing transformations and caching to the dataset.
 
         Args:
             dataset (Dataset): The dataset to process.
@@ -160,6 +156,7 @@ class ImageDataModule(LightningDataModule):
 
         Returns:
             Dataset: Processed dataset with transformations applied.
+
         """
         logger.info("Processing dataset for stage: %s", stage.value)
         dataset_hash = self.get_dataset_hash(dataset, stage.value)
@@ -184,12 +181,12 @@ class ImageDataModule(LightningDataModule):
         return dataset
 
     def split_dataset(self, dataset: Dataset, seed: int = 42) -> None:
-        """
-        Splits the dataset into train, validation, and optionally test sets.
+        """Splits the dataset into train, validation, and optionally test sets.
 
         Args:
             dataset (Dataset): The dataset to split.
             seed (int, optional): Seed for reproducibility. Defaults to 42.
+
         """
         logger.info("Splitting dataset into train, validation, and optionally test sets.")
         if self.validation_split is None:
@@ -210,10 +207,12 @@ class ImageDataModule(LightningDataModule):
         logger.info(f"Training set size: {len(self.train_dataset)}, Validation set size: {len(self.val_dataset)}")
 
     def _create_dataloader(
-        self, dataset: Dataset, shuffle: bool = False, coll_fn_data: Callable = coll_fn
+        self,
+        dataset: Dataset,
+        shuffle: bool = False,
+        coll_fn_data: Callable = coll_fn,
     ) -> DataLoader:
-        """
-        Creates a DataLoader for the given dataset with optional shuffling and custom collate function.
+        """Creates a DataLoader for the given dataset with optional shuffling and custom collate function.
 
         Args:
             dataset (Dataset): The dataset to load into the DataLoader.
@@ -226,6 +225,7 @@ class ImageDataModule(LightningDataModule):
         Returns:
             DataLoader: Configured DataLoader instance for the provided dataset, batch size,
                 number of workers, collate function, and shuffling behavior.
+
         """
         return DataLoader(
             dataset,
@@ -254,8 +254,7 @@ class ImageDataModule(LightningDataModule):
         return self._create_dataloader(self.predict_dataset, shuffle=False, coll_fn_data=coll_fn_predict)
 
     def get_dataset_hash(self, dataset: Dataset, stage: str) -> str:
-        """
-        Generates a unique identifier based on dataset content and key parameters.
+        """Generates a unique identifier based on dataset content and key parameters.
 
         Args:
             dataset (Dataset): The dataset for hash generation.
@@ -263,6 +262,7 @@ class ImageDataModule(LightningDataModule):
 
         Returns:
             str: Identifier string representing the dataset and parameters.
+
         """
         logger.info("Generating dataset identifier for stage: %s", stage)
         dataset_len = len(dataset)
@@ -275,4 +275,4 @@ class ImageDataModule(LightningDataModule):
             "split_auto": self.auto_split_data,
         }
 
-        return "_".join([f"{key}-{str(value)}" for key, value in important_params.items()])
+        return "_".join([f"{key}-{value!s}" for key, value in important_params.items()])

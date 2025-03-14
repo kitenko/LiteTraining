@@ -37,7 +37,7 @@ clearml = { features = ["clearml"], solve-group = "clearml", no-default-feature 
 [tool.pixi.dependencies]
 torchvision = "==0.20.1"
 torchaudio = "==2.5.1"
-pytorch-lightning = "==2.5.0"
+lightning = "==2.4.0"
 optuna = "==4.2.0"
 datasets = "==3.2.0"
 transformers = "==4.48.3"
