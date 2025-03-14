@@ -63,6 +63,7 @@ pytest-mock = "==3.14.0"
 isort = "==6.0.0"
 
 [tool.pixi.feature.clearml.dependencies]
+python = "==3.11"
 clearml-agent = "==1.9.0"
 setuptools = "==75.8.0"
 
