@@ -13,7 +13,7 @@ import re
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, NamedTuple, Optional, Set, Union
+from typing import Any, NamedTuple
 
 import yaml
 from jsonargparse import Namespace
@@ -69,11 +69,11 @@ class DirectoryStructure(NamedTuple):
     """
 
     base_dir: Path
-    checkpoints_dir: Optional[Path]
-    logs_dir: Optional[Path]
+    checkpoints_dir: Path | None
+    logs_dir: Path | None
 
 
-def find_keys_recursive(config: Namespace, keys_to_find: List[str]) -> Dict[str, Any]:
+def find_keys_recursive(config: Namespace, keys_to_find: list[str]) -> dict[str, Any]:
     """Recursively searches for the values of multiple keys in a Namespace configuration.
 
     Args:
@@ -87,9 +87,9 @@ def find_keys_recursive(config: Namespace, keys_to_find: List[str]) -> Dict[str,
         KeyError: If any of the specified keys are not found in the configuration.
 
     """
-    found_values: Dict[str, Any] = {}
-    keys_remaining: Set[str] = set(keys_to_find)
-    visited: Set[int] = set()
+    found_values: dict[str, Any] = {}
+    keys_remaining: set[str] = set(keys_to_find)
+    visited: set[int] = set()
 
     def recursive_search(cfg: Any):
         cfg_id = id(cfg)
@@ -129,7 +129,7 @@ def find_keys_recursive(config: Namespace, keys_to_find: List[str]) -> Dict[str,
     return found_values
 
 
-def generate_folder_name(found_values: Dict[str, Any], custom_folder_name: Optional[str]) -> str:
+def generate_folder_name(found_values: dict[str, Any], custom_folder_name: str | None) -> str:
     """Generates a folder name based on provided key-value pairs or a custom folder name.
 
     Args:
@@ -150,7 +150,7 @@ def generate_folder_name(found_values: Dict[str, Any], custom_folder_name: Optio
 
 def create_directory_structure(
     base_dir: Path,
-    subdirectories: Optional[list[Subdirectory]] = None,
+    subdirectories: list[Subdirectory] | None = None,
 ) -> DirectoryStructure:
     """Creates a base directory and optional subdirectories.
 
@@ -177,7 +177,7 @@ def create_directory_structure(
     return DirectoryStructure(base_dir=base_dir, checkpoints_dir=checkpoints_dir, logs_dir=logs_dir)
 
 
-def setup_directories(config: Namespace, found_values: Dict[str, Any]) -> DirectoryStructure:
+def setup_directories(config: Namespace, found_values: dict[str, Any]) -> DirectoryStructure:
     """Sets up directories for training, including base, checkpoints, and logs.
 
     Args:
@@ -257,7 +257,7 @@ def sanitize_folder_name(name: str) -> str:
     return sanitized_name
 
 
-def update_checkpoint_saver_dirpath(callbacks: list[Any], new_dirpath: Union[str, Path]) -> None:
+def update_checkpoint_saver_dirpath(callbacks: list[Any], new_dirpath: str | Path) -> None:
     """Updates the 'dirpath' attribute for the PeriodicCheckpointSaver callback in the provided callbacks list.
 
     Args:
@@ -269,22 +269,23 @@ def update_checkpoint_saver_dirpath(callbacks: list[Any], new_dirpath: Union[str
 
     """
     for callback in callbacks:
-        if "PeriodicCheckpointSaver" in getattr(callback, "class_path", ""):
-            if hasattr(callback, "init_args"):
-                callback.init_args.dirpath = str(new_dirpath)
-                logger.info(f"Updated dirpath to: {new_dirpath}")
+        if "PeriodicCheckpointSaver" in getattr(callback, "class_path", "") and hasattr(callback, "init_args"):
+            if isinstance(callback.init_args, dict):
+                callback.init_args["dirpath"] = str(new_dirpath)
             else:
-                raise AttributeError(f"The callback {callback} does not have the 'init_args' attribute.")
-            break
-    else:
-        logger.info("PeriodicCheckpointSaver was not found in the callbacks list.")
+                callback.init_args.dirpath = str(new_dirpath)
+
+            logger.info(f"Updated dirpath to: {new_dirpath}")
+            return
+
+    logger.info("PeriodicCheckpointSaver was not found in the callbacks list.")
 
 
 def setup_logging_and_save_config(
     config: Namespace,
     base_dir: Path,
-    logs_dir: Optional[Path],
-    checkpoints_dir: Optional[Path],
+    logs_dir: Path | None,
+    checkpoints_dir: Path | None,
 ) -> Namespace:
     """Sets up logging, updates the checkpoint saver directory, and configures the TensorBoard logger.
 
