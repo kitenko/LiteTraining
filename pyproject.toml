@@ -47,6 +47,7 @@ scikit-learn = "==1.6.1"
 seaborn = "==0.13.2"
 numba = "==0.61.0"
 clearml = ">=1.17.1,<2"
+virtualenv = ">=20.29.3,<21"
 
 [tool.pixi.feature.gpu.dependencies]
 pytorch-gpu = "==2.5.1"
