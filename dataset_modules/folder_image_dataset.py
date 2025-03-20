@@ -124,7 +124,7 @@ class FolderImageDataset(DatasetBase):
             clearml_config (DatasetConfig): ClearML dataset configuration.
 
         """
-        dataset_path = self.load_data_from_clearml(clearml_dataset_id, clearml_config=clearml_config)
+        dataset_path = self.load_data_from_clearml(clearml_dataset_id, config=clearml_config)
 
         self.train_val_dir = os.path.join(dataset_path, self.get_base_name(self.train_val_dir))
 
