@@ -1,5 +1,6 @@
 import argparse
 import logging
+import os
 from dataclasses import dataclass
 from typing import Any
 
@@ -203,7 +204,9 @@ def get_local_dataset_copy(dataset_id: str, config: DatasetConfig) -> str:
 
     dataset = get_dataset(config=config)
 
-    local_path = dataset.get_local_copy()
+    path_to_save = os.path.abspath(f"data/local_dataset_{dataset.id}")
+
+    local_path = dataset.get_mutable_local_copy(target_folder=path_to_save, overwrite=True)
     logging.info(f"📂 Local dataset copy is available at: {local_path}")
 
     return local_path
