@@ -160,7 +160,8 @@ data:
         init_args:
           train_val_dir: "data/train_data"      # Directory for training and validation data
           validation_split: 0.2
-          clearml_dataset_id: "2f12c73170a3459d89e7596921cae08b"
+          # clearml_dataset_id: "2f12c73170a3459d89e7596921cae08b"
+          
 
     normalizations: *common_transforms                # Reuse normalizations defined in common_transforms
 
