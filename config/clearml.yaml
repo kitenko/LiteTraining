@@ -1,6 +1,12 @@
-# clearml.yaml
+# general setting
+
 use_clearml: true
 project: "butterfly_classification"
-output_uri: true
+dataset_name: "ButterflyDataset"
+output_uri: true # for save logs, models
 execute_remote_task: true
-docker_image: "litetraining-lightnin_classifier:latest"
+docker_image: null
+
+# datasets settings
+data_path: "data/train_test"
+sync_data: false

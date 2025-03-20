@@ -10,7 +10,7 @@ Key features:
 
 import logging
 import os
-from typing import Callable, List, Optional
+from collections.abc import Callable
 
 from albumentations.core.composition import BaseCompose
 from albumentations.core.transforms_interface import BasicTransform
@@ -19,7 +19,7 @@ from lightning import LightningDataModule
 from torch.utils.data import DataLoader
 
 from dataset_modules.augmentations import TransformDataset
-from dataset_modules.base_dataset import DatasetSplit, ImageDatasetBase
+from dataset_modules.base_dataset import DatasetBase, DatasetSplit
 from dataset_modules.utils import coll_fn, coll_fn_predict
 
 logger = logging.getLogger(__name__)
@@ -33,14 +33,14 @@ class ImageDataModule(LightningDataModule):
 
     def __init__(
         self,
-        augmentations: List[BasicTransform | BaseCompose],
-        normalizations: List[BasicTransform | BaseCompose],
-        dataset_classes: List[ImageDatasetBase],
+        augmentations: list[BasicTransform | BaseCompose],
+        normalizations: list[BasicTransform | BaseCompose],
+        dataset_classes: list[DatasetBase],
         batch_size: int = 32,
         num_workers: int = 4,
         create_dataset: bool = False,
         validation_split: float = 0.1,
-        test_split: Optional[float] = None,
+        test_split: float | None = None,
         cache_dir: str = "./data/cache",
         auto_split_data: bool = False,
     ):
@@ -61,10 +61,10 @@ class ImageDataModule(LightningDataModule):
         """
         super().__init__()
         self.dataset_classes = dataset_classes
-        self.train_dataset: Optional[Dataset] = None
-        self.val_dataset: Optional[Dataset] = None
-        self.test_dataset: Optional[Dataset] = None
-        self.predict_dataset: Optional[Dataset] = None  # For inference data
+        self.train_dataset: Dataset | None = None
+        self.val_dataset: Dataset | None = None
+        self.test_dataset: Dataset | None = None
+        self.predict_dataset: Dataset | None = None  # For inference data
         self.normalization_image = TransformDataset(normalizations)
         self.augmentations = TransformDataset(augmentations)
         self.create_dataset = create_dataset
@@ -75,7 +75,7 @@ class ImageDataModule(LightningDataModule):
         self.auto_split_data = auto_split_data
         self.cache_dir = cache_dir
 
-    def setup(self, stage: Optional[str] = None) -> None:
+    def setup(self, stage: str | None = None) -> None:
         """Initializes datasets for the specified stage (fit, validate, test, or predict) and splits data as necessary.
 
         Args:

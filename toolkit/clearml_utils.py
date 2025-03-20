@@ -4,35 +4,30 @@ This module provides a function to initialize a ClearML task based on the projec
 """
 
 import logging
-from typing import Optional
 
 from clearml import Task
 from jsonargparse import Namespace
 
-from toolkit.agent_utils import load_clearml_config
+from toolkit.clearml_dataset import load_config
 
 logger = logging.getLogger(__name__)
 
 
-def init_clearml_task() -> Optional[Task]:
+def init_clearml_task() -> Task | None:
     """Initialize and return a ClearML task if enabled in the config."""
-    clear_ml_config = load_clearml_config()
+    clear_ml_config = load_config()
 
-    if not clear_ml_config.get("use_clearml", False):
+    if not clear_ml_config.use_clearml:
         return None
 
     task = Task.init(
-        project_name=clear_ml_config["project"],
-        task_name=clear_ml_config.get("task"),
-        output_uri=clear_ml_config.get("output_uri"),
+        project_name=clear_ml_config.project,
+        task_name=clear_ml_config.task,
+        output_uri=clear_ml_config.output_uri,
     )
 
-    if clear_ml_config.get("docker_image"):
-        task.set_base_docker(clear_ml_config.get("docker_image"))
-
-    # if clear_ml_config.get("execute_remote_task"):
-    #     if task.running_locally():
-    #         task.execute_remotely(queue_name="pixi_tasks", clone=True, exit_process=True)
+    if clear_ml_config.docker_image:
+        task.set_base_docker(clear_ml_config.docker_image)
 
     logger.info("ClearML task initialized: %s", task.id)
     return task
@@ -67,3 +62,13 @@ def connect_clearml_configuration(config: Namespace) -> Namespace:
     except Exception as e:
         logger.error("Failed to initialize or connect ClearML task: %s", e)
         return config
+
+
+def is_task_running_locally() -> bool:
+    """Checks whether the ClearML task is running locally.
+
+    Returns:
+        bool: True if the task is running locally, otherwise False.
+
+    """
+    return Task.running_locally()

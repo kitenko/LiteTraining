@@ -6,7 +6,9 @@ It sets up a fault handler and starts the CLI for configuring and running image 
 
 import faulthandler
 import logging
-from typing import Callable, Optional
+import sys
+import traceback
+from collections.abc import Callable
 
 from toolkit.agent_utils import load_checkpoint
 from toolkit.clearml_utils import init_clearml_task
@@ -44,6 +46,9 @@ def run() -> None:
         # Log the exception with stack trace for detailed debugging information
         logger.exception("An error occurred during training or setup")
 
+        traceback.print_exc()
+        sys.exit(1)
+
 
 def handle_cli_process(cli: CustomLightningCLI) -> None:
     """Handle different CLI processes such as tuning, testing, validation, training, or prediction
@@ -53,7 +58,7 @@ def handle_cli_process(cli: CustomLightningCLI) -> None:
         cli (CustomLightningCLI): The custom CLI instance used to run the processes.
 
     """
-    ckpt_path: Optional[str] = cli.config.get("ckpt_path", None)
+    ckpt_path: str | None = cli.config.get("ckpt_path", None)
 
     if cli.config.get("optuna", {}).get("tune", False):
         run_optuna(cli)
@@ -69,7 +74,7 @@ def handle_cli_process(cli: CustomLightningCLI) -> None:
 
 def run_predict(
     cli: CustomLightningCLI,
-    ckpt_path: Optional[str],
+    ckpt_path: str | None,
     predict_fn: Callable = run_predict_to_csv,
 ) -> None:
     """Run prediction process with a custom prediction function.
@@ -100,7 +105,7 @@ def run_optuna(cli: CustomLightningCLI) -> None:
     cli.run_optuna()
 
 
-def run_test(cli: CustomLightningCLI, ckpt_path: Optional[str]) -> None:
+def run_test(cli: CustomLightningCLI, ckpt_path: str | None) -> None:
     """Run testing process with the specified model and datamodule, using an optional checkpoint.
 
     Args:
@@ -111,7 +116,7 @@ def run_test(cli: CustomLightningCLI, ckpt_path: Optional[str]) -> None:
     cli.trainer.test(cli.model, cli.datamodule, ckpt_path=ckpt_path)
 
 
-def run_validation(cli: CustomLightningCLI, ckpt_path: Optional[str]) -> None:
+def run_validation(cli: CustomLightningCLI, ckpt_path: str | None) -> None:
     """Run validation process with the specified model and datamodule, using an optional checkpoint.
 
     Args:
@@ -122,7 +127,7 @@ def run_validation(cli: CustomLightningCLI, ckpt_path: Optional[str]) -> None:
     cli.trainer.validate(cli.model, cli.datamodule, ckpt_path=ckpt_path)
 
 
-def run_training(cli: CustomLightningCLI, ckpt_path: Optional[str]) -> None:
+def run_training(cli: CustomLightningCLI, ckpt_path: str | None) -> None:
     """Run the training process, with an option to load only the model's weights without the optimizer state.
 
     Args:

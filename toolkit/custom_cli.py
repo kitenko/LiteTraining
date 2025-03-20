@@ -8,7 +8,7 @@ Features:
 """
 
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 from jsonargparse import Namespace
 from lightning import seed_everything
@@ -155,8 +155,6 @@ class CustomLightningCLI(LightningCLI):
 
         self.config = config
 
-        # self.config = connect_clearml_configuration(config)
-
         self.set_seed(config)
 
         if self.is_test_or_val_mode(config):
@@ -189,8 +187,8 @@ class CustomLightningCLI(LightningCLI):
     def extract_experiment_values(
         self,
         config: Namespace,
-        keys_to_find: List[str],
-    ) -> Dict[str, Any]:
+        keys_to_find: list[str],
+    ) -> dict[str, Any]:
         """Retrieves specific values from the given configuration based on provided keys.
 
         Args:

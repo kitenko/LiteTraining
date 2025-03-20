@@ -1,38 +1,21 @@
-"""
-This module provides utilities for setting up logging in the project.
-
-It defines a function `setup_logging` that configures logging to store logs
-in a specified file and display them in the console with consistent formatting.
-"""
-
 import logging
 import os
 from pathlib import Path
-from typing import Union
 
 
-def setup_logging(log_dir: Union[Path, str], log_filename: Union[Path, str] = "training_log.log") -> None:
-    """
-    Sets up logging to store logs in a specified directory and display them in the console.
+def setup_logging(log_dir: Path | str, log_filename: Path | str = "training_log.log") -> None:
+    """Sets up logging to store logs in a specified directory and display them in the console.
 
     Args:
         log_dir (Union[Path, str]): Path to the directory where log files will be stored.
-            Can be provided as a `pathlib.Path` object or a string.
         log_filename (Union[Path, str]): Name of the log file. Defaults to 'training_log.log'.
-            Can be provided as a `pathlib.Path` object or a string.
 
     Returns:
         None
 
-    Raises:
-        FileNotFoundError: If `log_dir` cannot be created or is invalid.
     """
     # Get the root logger
     root_logger = logging.getLogger()
-
-    # Clear existing handlers to avoid duplication
-    if root_logger.hasHandlers():
-        root_logger.handlers.clear()
 
     # Ensure log directory exists
     os.makedirs(log_dir, exist_ok=True)
@@ -40,6 +23,10 @@ def setup_logging(log_dir: Union[Path, str], log_filename: Union[Path, str] = "t
 
     # Set the logging level for the root logger
     root_logger.setLevel(logging.INFO)
+
+    # Remove existing handlers to prevent duplication
+    while root_logger.hasHandlers():
+        root_logger.removeHandler(root_logger.handlers[0])
 
     # Define log format
     log_format = "[%(asctime)s] %(levelname)-8s %(filename)s:%(lineno)d - %(name)s - %(message)s"
@@ -59,4 +46,28 @@ def setup_logging(log_dir: Union[Path, str], log_filename: Union[Path, str] = "t
     root_logger.addHandler(file_handler)
     root_logger.addHandler(console_handler)
 
-    root_logger.info("Logging has been set up. Logs will be stored in: %s", log_filepath)
+    root_logger.info("✅ Logging has been set up. Logs will be stored in: %s", log_filepath)
+
+
+def setup_logging_module() -> None:
+    # Get the root logger
+    root_logger = logging.getLogger()
+
+    # Set the logging level for the root logger
+    root_logger.setLevel(logging.INFO)
+
+    # Remove existing handlers to prevent duplication
+    while root_logger.hasHandlers():
+        root_logger.removeHandler(root_logger.handlers[0])
+
+    # Define log format
+    log_format = "[%(asctime)s] %(levelname)-8s %(filename)s:%(lineno)d - %(name)s - %(message)s"
+    formatter = logging.Formatter(log_format)
+
+    # Stream handler for logging to the console
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(formatter)
+
+    # Add both handlers to the root logger
+    root_logger.addHandler(console_handler)
