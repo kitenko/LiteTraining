@@ -126,13 +126,13 @@ class FolderImageDataset(DatasetBase):
         """
         dataset_path = self.load_data_from_clearml(clearml_dataset_id, config=clearml_config)
 
-        self.train_val_dir = os.path.join(dataset_path, self.get_base_name(self.train_val_dir))
+        self.train_val_dir = dataset_path
 
         if self.test_dir:
-            self.test_dir = os.path.join(dataset_path, self.get_base_name(self.test_dir))
+            self.test_dir = dataset_path
 
         if self.prediction_dir:
-            self.prediction_dir = os.path.join(dataset_path, self.get_base_name(self.prediction_dir))
+            self.prediction_dir = dataset_path
 
         logger.info(f"✅ Dataset directories set up from ClearML dataset {clearml_dataset_id}.")
 
