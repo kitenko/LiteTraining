@@ -203,7 +203,7 @@ def get_local_dataset_copy(dataset_id: str, config: DatasetConfig) -> str:
 
     dataset = get_dataset(config=config)
 
-    local_path = dataset.get_local_copy()
+    local_path = dataset.get_local_copy(use_soft_links=False)
     logging.info(f"📂 Local dataset copy is available at: {local_path}")
 
     return local_path
