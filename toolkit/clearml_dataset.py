@@ -2,7 +2,6 @@ import argparse
 import logging
 import os
 from dataclasses import dataclass
-from typing import Any
 
 import yaml
 from clearml import Dataset
@@ -30,7 +29,7 @@ class DatasetConfig:
     alias: str | None = None
     overridable: bool = False
     shallow_search: bool = False
-    parent_datasets: list[Any] | None = None
+    parent_datasets: list[str] | None = None
     dataset_output_uri: str | None = None
     description: str | None = None
     show_progress: bool = True
@@ -44,6 +43,7 @@ class DatasetConfig:
     output_uri: bool = True
     execute_remote_task: bool = False
     docker_image: None | str = None
+    local_copy_path: str = "data/local_dataset_clearml"
 
 
 def load_config(config_path: str = "config/clearml.yaml") -> DatasetConfig:
@@ -187,15 +187,15 @@ def update_dataset_version_if_changed(config: DatasetConfig, data_path: str | No
     return sync_and_upload_dataset(dataset, config)
 
 
-def get_local_dataset_copy(dataset_id: str, config: DatasetConfig) -> str:
-    """Retrieves a local copy of the dataset by its ID.
+def _fetch_dataset_with_dependencies(dataset_id: str, config: DatasetConfig) -> Dataset:
+    """Retrieve a ClearML dataset by its ID and download all parent dependencies recursively.
 
     Args:
-        dataset_id (str): The ClearML dataset ID.
-        config (DatasetConfig): The dataset configuration.
+        dataset_id (str): Identifier of the dataset to retrieve from ClearML.
+        config (DatasetConfig): Configuration object with dataset parameters.
 
     Returns:
-        str: The local file path to the dataset.
+        Dataset: The ClearML Dataset object with all required dependencies resolved.
 
     """
     config.dataset_id = dataset_id
@@ -204,11 +204,53 @@ def get_local_dataset_copy(dataset_id: str, config: DatasetConfig) -> str:
 
     dataset = get_dataset(config=config)
 
-    path_to_save = os.path.abspath(f"data/local_dataset_{dataset.id}")
+    dependencies = dataset.get_dependency_graph().get(dataset_id, [])
 
+    if dependencies:
+        logging.info(f"🔄 Dataset '{dataset_id}' has dependencies: {dependencies}")
+
+        for parent_id in dependencies:
+            parent_dataset = Dataset.get(dataset_id=parent_id)
+            logging.info(f"📂 Fetching parent dataset '{parent_id}'")
+            parent_dataset.get_local_copy()
+
+    return dataset
+
+
+def get_mutable_local_dataset_copy(dataset_id: str, config: DatasetConfig) -> str:
+    """Retrieve a mutable local copy of a ClearML dataset and its dependencies.
+
+    Args:
+        dataset_id (str): The ClearML dataset ID.
+        config (DatasetConfig): The dataset configuration.
+
+    Returns:
+        str: Absolute path to the local mutable dataset copy.
+
+    """
+    dataset = _fetch_dataset_with_dependencies(dataset_id, config)
+
+    path_to_save = os.path.abspath(config.local_copy_path)
     local_path = dataset.get_mutable_local_copy(target_folder=path_to_save, overwrite=True)
-    logging.info(f"📂 Local dataset copy is available at: {local_path}")
 
+    logging.info(f"✅ Mutable local dataset copy is available at: {local_path}")
+    return local_path
+
+
+def get_local_dataset_copy(dataset_id: str, config: DatasetConfig) -> str:
+    """Downloads a read-only local copy of the dataset and its dependencies from ClearML.
+
+    Args:
+        dataset_id (str): The ClearML dataset ID.
+        config (DatasetConfig): The configuration object containing dataset settings.
+
+    Returns:
+        str: The absolute path to the read-only local dataset copy.
+
+    """
+    dataset = _fetch_dataset_with_dependencies(dataset_id, config)
+    local_path = dataset.get_local_copy()
+    logging.info(f"✅ Read-only dataset copy is available at: {local_path}")
     return local_path
 
 
@@ -253,6 +295,45 @@ def create_new_dataset(config: DatasetConfig) -> Dataset:
     return dataset
 
 
+def squash_dataset(config: DatasetConfig) -> Dataset:
+    """Squashes multiple dataset versions into a single independent dataset.
+
+    Args:
+        config (DatasetConfig): Configuration containing dataset details.
+
+    Returns:
+        Dataset: The newly created squashed dataset.
+
+    Raises:
+        ValueError: If no parent datasets are provided.
+
+    """
+    if not config.parent_datasets:
+        raise ValueError("At least one parent dataset ID is required for squash.")
+
+    for dataset_id in config.parent_datasets:
+        get_mutable_local_dataset_copy()
+        dataset = Dataset.get(dataset_id=dataset_id)
+        dataset.get_local_copy(use_soft_links=False)
+
+    dataset_ids = config.parent_datasets
+
+    logging.info(f"🔄 Squashing datasets: {dataset_ids}")
+
+    squashed_dataset = Dataset.squash(
+        dataset_name=f"{config.dataset_name}_squashed",
+        dataset_ids=dataset_ids,
+        output_url=config.dataset_output_uri,
+    )
+
+    logging.info(f"✅ Squashed dataset created: {squashed_dataset.id}")
+
+    upload_dataset(squashed_dataset, config)
+    finalize_dataset(squashed_dataset)
+
+    return squashed_dataset
+
+
 def main() -> None:
     """Entry point for the script when run as a module or standalone.
 
@@ -263,12 +344,17 @@ def main() -> None:
     )
     parser.add_argument("--config", type=str, required=True, help="Path to the YAML configuration file.")
     parser.add_argument("--create", action="store_true", help="Create a new dataset.")
+    parser.add_argument(
+        "--squash",
+        action="store_true",
+        help="Squash dataset versions into a single independent dataset.",
+    )
 
     parser.add_argument(
         "--sync",
         type=str,
-        nargs="?",  # Makes --sync optional but expects a value when provided
-        const="",  # If used without a value, defaults to an empty string
+        nargs="?",
+        const="",
         help="Path to the dataset directory to sync and update in ClearML.",
     )
 
@@ -286,14 +372,17 @@ def main() -> None:
     if args.create:
         create_new_dataset(config)
 
+    elif args.squash:
+        squash_dataset(config)
+
     elif args.sync is not None:
         update_dataset_version_if_changed(config, data_path=args.sync)
 
     elif args.get_copy:
-        get_local_dataset_copy(dataset_id=args.get_copy, config=config)
+        get_mutable_local_dataset_copy(dataset_id=args.get_copy, config=config)
 
     else:
-        parser.print_help()  # Show help if no valid arguments are provided
+        parser.print_help()
 
 
 if __name__ == "__main__":

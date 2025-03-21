@@ -12,7 +12,7 @@ from enum import Enum
 from clearml import Dataset as ClearmlDataset
 from datasets import Dataset, concatenate_datasets
 
-from toolkit.clearml_dataset import DatasetConfig, get_local_dataset_copy, update_dataset_version_if_changed
+from toolkit.clearml_dataset import DatasetConfig, get_mutable_local_dataset_copy, update_dataset_version_if_changed
 from toolkit.clearml_utils import is_task_running_locally
 
 logger = logging.getLogger(__name__)
@@ -230,7 +230,7 @@ class DatasetBase(ABC):
             str: Path to the locally downloaded dataset.
 
         """
-        return get_local_dataset_copy(dataset_id=dataset_id, config=config)
+        return get_mutable_local_dataset_copy(dataset_id=dataset_id, config=config)
 
     @staticmethod
     def get_base_name(path: str) -> str:
