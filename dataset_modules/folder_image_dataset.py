@@ -76,7 +76,8 @@ class FolderImageDataset(DatasetBase):
         cache_dir (str):
             Directory path for storing cached datasets and intermediate processing files. Defaults to "./data/cache".
         clearml_dataset_id (Optional[str]):
-            ID of an existing dataset in ClearML. If provided, the dataset will be downloaded and used. Defaults to None.
+            ID of an existing dataset in ClearML. If provided, the dataset will be downloaded and used. Defaults to
+            None.
 
         """
         super().__init__(
@@ -112,8 +113,8 @@ class FolderImageDataset(DatasetBase):
 
         logger.info(
             f"Initializing FolderImageDataset with parameters: train_val_dir={self.train_val_dir}, "
-            f"test_dir={self.test_dir}, prediction_dir={self.prediction_dir}, validation_split={self.validation_split}, "
-            f"cache_dir={cache_dir}",
+            f"test_dir={self.test_dir}, prediction_dir={self.prediction_dir}, validation_split={self.validation_split},"
+            f" cache_dir={cache_dir}",
         )
 
     def set_up_new_data_dir_clearml(self, clearml_dataset_id: str, clearml_config: DatasetConfig) -> None:

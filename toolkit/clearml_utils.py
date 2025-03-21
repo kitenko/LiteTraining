@@ -48,20 +48,18 @@ def connect_clearml_configuration(config: Namespace) -> Namespace:
         - Any errors encountered during the process.
 
     """
-    try:
-        # Check if a ClearML task is already active.
-        task = Task.current_task()
+    # Check if a ClearML task is already active.
+    task = Task.current_task()
 
-        if task:
-            # Connect configuration to the ClearML task for parameter editing via Web UI.
-            new_config = task.connect(config)
-            logger.info("ClearML configuration connected via active task: %s", task.id)
-            return new_config
-        logger.info("No active ClearML task found. ClearML configuration not connected.")
-        return config
-    except Exception as e:
-        logger.error("Failed to initialize or connect ClearML task: %s", e)
-        return config
+    if task:
+        # Connect configuration to the ClearML task for parameter editing via Web UI.
+        new_config = task.connect(config)
+        logger.info("ClearML configuration connected via active task: %s", task.id)
+        return new_config
+
+    logger.info("No active ClearML task found. ClearML configuration not connected.")
+
+    return config
 
 
 def is_task_running_locally() -> bool:

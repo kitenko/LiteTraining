@@ -1,3 +1,8 @@
+"""toolkit/logging_utils.py
+
+Utility module for setting up logging across the project.
+"""
+
 import logging
 import os
 from pathlib import Path
@@ -50,6 +55,7 @@ def setup_logging(log_dir: Path | str, log_filename: Path | str = "training_log.
 
 
 def setup_logging_module() -> None:
+    """Sets up logging"""
     # Get the root logger
     root_logger = logging.getLogger()
 

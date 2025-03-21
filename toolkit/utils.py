@@ -1,3 +1,9 @@
+"""Module: toolkit/utils.py
+
+Provides utility functions for working with Python classes and introspection.
+"""
+
+
 def get_class_name(cls_or_instance: type | object) -> str:
     """Returns the class name (without module) for a given class or instance.
 

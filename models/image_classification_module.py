@@ -6,7 +6,7 @@ and test steps with specific handling for image classification.
 """
 
 import logging
-from typing import Any, Dict
+from typing import Any
 
 import torch
 from lightning import LightningModule
@@ -57,8 +57,9 @@ class ImageClassificationModule(LightningModule):
         """
         return self.model(input_values)
 
-    def _train_val_test_step(self, batch: Dict[str, Any], phase: str) -> Dict[str, Tensor]:
-        """Performs a forward pass, computes the loss, and logs results for a specific phase (train, validation, or test).
+    def _train_val_test_step(self, batch: dict[str, Any], phase: str) -> dict[str, Tensor]:
+        """Performs a forward pass, computes the loss, and logs results for a specific phase (train, validation,
+            or test).
 
         Args:
             batch (Dict[str, Any]): Batch of data containing 'pixel_values' (image data) and 'labels'.
@@ -85,7 +86,7 @@ class ImageClassificationModule(LightningModule):
 
         return {"loss": loss, "preds": preds, "targets": batch["labels"]}
 
-    def _predict_step(self, batch: Dict[str, Any]) -> Dict[str, Tensor]:
+    def _predict_step(self, batch: dict[str, Any]) -> dict[str, Tensor]:
         """Performs a forward pass and generates predictions for unlabeled data.
 
         Args:
@@ -99,7 +100,7 @@ class ImageClassificationModule(LightningModule):
         preds = torch.argmax(outputs, dim=1)
         return {"preds": preds}
 
-    def training_step(self, batch: Dict[str, Any]) -> Dict[str, Tensor]:
+    def training_step(self, batch: dict[str, Any]) -> dict[str, Tensor]:
         """Performs a single training step for image classification.
 
         Args:
@@ -111,7 +112,7 @@ class ImageClassificationModule(LightningModule):
         """
         return self._train_val_test_step(batch, "train")
 
-    def validation_step(self, batch: Dict[str, Any]) -> Dict[str, Tensor]:
+    def validation_step(self, batch: dict[str, Any]) -> dict[str, Tensor]:
         """Performs a single validation step for image classification.
 
         Args:
@@ -123,7 +124,7 @@ class ImageClassificationModule(LightningModule):
         """
         return self._train_val_test_step(batch, "validation")
 
-    def test_step(self, batch: Dict[str, Any]) -> Dict[str, Tensor]:
+    def test_step(self, batch: dict[str, Any]) -> dict[str, Tensor]:
         """Performs a single test step for image classification.
 
         Args:
@@ -135,7 +136,7 @@ class ImageClassificationModule(LightningModule):
         """
         return self._train_val_test_step(batch, "test")
 
-    def predict_step(self, batch: Dict[str, Any]) -> Dict[str, Tensor]:
+    def predict_step(self, batch: dict[str, Any]) -> dict[str, Tensor]:
         """Performs a single prediction step for image classification on unlabeled data.
 
         Args:

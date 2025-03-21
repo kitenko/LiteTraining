@@ -1,3 +1,19 @@
+"""Module: toolkit/clearml_dataset.py
+
+This module provides a set of utilities for managing ClearML datasets,
+including creation, synchronization, version updates, squashing datasets,
+and downloading local copies (both read-only and writable).
+
+It relies on configuration provided via a YAML file and uses ClearML's Dataset API.
+
+Typical use cases include:
+- Creating new datasets from a local folder.
+- Updating datasets if changes are detected.
+- Squashing multiple dataset versions into one.
+- Downloading datasets with or without their dependencies.
+
+"""
+
 import argparse
 import logging
 import os
@@ -10,7 +26,7 @@ from toolkit.logging_utils import setup_logging_module
 
 
 @dataclass
-class DatasetConfig:
+class DatasetConfig:  # pylint: disable=too-many-instance-attributes
     """Configuration class for dataset management in ClearML."""
 
     project: str
@@ -312,9 +328,7 @@ def squash_dataset(config: DatasetConfig) -> Dataset:
         raise ValueError("At least one parent dataset ID is required for squash.")
 
     for dataset_id in config.parent_datasets:
-        get_mutable_local_dataset_copy()
-        dataset = Dataset.get(dataset_id=dataset_id)
-        dataset.get_local_copy(use_soft_links=False)
+        get_local_dataset_copy(dataset_id, config)
 
     dataset_ids = config.parent_datasets
 

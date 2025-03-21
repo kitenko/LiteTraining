@@ -1,7 +1,7 @@
 [MAIN]
 
 # Files or directories to be skipped. They should be base names, not paths.
-ignore=CVS,.pixi,.venv,site-packages,.pytest_cache,.vscode,.mypy_cache
+ignore=CVS,.pixi,.venv,site-packages,.pytest_cache,.vscode,.mypy_cache,.lh,.history
 
 # Add files or directories matching the regular expressions patterns to the
 # ignore-list. The regex matches against paths and can be in Posix or Windows
