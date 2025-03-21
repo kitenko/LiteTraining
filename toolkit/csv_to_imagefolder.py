@@ -127,7 +127,7 @@ def organize_images_by_class(
     output_dir: str,
     filename_column: str = "filename",
     label_column: str = "label",
-    split: float = None,
+    split: float | None = None,
 ) -> None:
     """Organizes images into class-specific folders based on mappings in a CSV file.
     Optionally performs a train-test split before organizing.

@@ -29,9 +29,9 @@ from toolkit.logging_utils import setup_logging_module
 class DatasetConfig:  # pylint: disable=too-many-instance-attributes
     """Configuration class for dataset management in ClearML."""
 
-    project: str
-    dataset_name: str
-    data_path: str
+    project: str | None
+    dataset_name: str | None
+    data_path: str | None
     task: None | str = None
     use_clearml: bool = False
     dataset_id: None | str = None
