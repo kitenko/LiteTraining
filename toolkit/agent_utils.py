@@ -1,7 +1,6 @@
 """Module with utilities for instantiating classes from configuration and loading model checkpoints."""
 
 import importlib
-from typing import List, Optional
 
 import torch
 from jsonargparse import Namespace
@@ -31,7 +30,7 @@ def instantiate_from_config(config: Namespace):
     return instance
 
 
-def instantiate_classes_from_config(configs: List[Namespace]):
+def instantiate_classes_from_config(configs: list[Namespace]):
     """Instantiates a list of objects based on the provided list of configurations.
 
     Args:
@@ -50,7 +49,7 @@ def instantiate_classes_from_config(configs: List[Namespace]):
 
 
 def load_checkpoint(
-    ckpt_path: Optional[str],
+    ckpt_path: str | None,
     model: Module,
     strict: bool = True,
 ) -> None:

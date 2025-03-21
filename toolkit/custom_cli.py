@@ -8,11 +8,11 @@ Features:
 """
 
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 from jsonargparse import Namespace
-from pytorch_lightning import seed_everything
-from pytorch_lightning.cli import LightningArgumentParser, LightningCLI
+from lightning import seed_everything
+from lightning.pytorch.cli import LightningArgumentParser, LightningCLI
 
 from toolkit.folder_manager import (
     find_keys_recursive,
@@ -22,21 +22,22 @@ from toolkit.folder_manager import (
 from toolkit.optuna_tuner import OptunaConfig, OptunaTuner
 
 logger = logging.getLogger(__name__)
-logger.propagate = True  # Enable logging handler propagation
+logger.propagate = True  # Enable logging h andler propagation
 
 
 class CustomLightningCLI(LightningCLI):
-    """A custom extension of PyTorch LightningCLI that introduces additional functionality
-    for managing checkpoint directories, logging, and configuration before training starts.
+    """A custom extension of PyTorch LightningCLI.
 
-    This class dynamically configures directories for storing training data, checkpoints,
-    and logs, sets up logging, and saves the training configuration to a YAML file.
+    This class introduces additional functionality for managing checkpoint directories,
+    logging, and configuration before training starts. It dynamically configures directories
+    for storing training data, checkpoints, and logs, sets up logging, and saves the training
+    configuration to a YAML file.
     """
 
     config: Namespace
 
-    def add_arguments_to_parser(self, parser: LightningArgumentParser):
-        """Adds additional arguments for Optuna configuration and custom experiment options to the argument parser.
+    def add_arguments_to_parser(self, parser: LightningArgumentParser) -> None:
+        """Add additional arguments for Optuna configuration and custom experiment options to the argument parser.
 
         Args:
             parser (LightningArgumentParser): The argument parser to add arguments to.
@@ -151,6 +152,9 @@ class CustomLightningCLI(LightningCLI):
     def before_instantiate_classes(self):
         """Configures directories, sets seeds, and saves configurations before instantiating classes."""
         config: Namespace = self.config
+
+        self.config = config
+
         self.set_seed(config)
 
         if self.is_test_or_val_mode(config):
@@ -166,6 +170,10 @@ class CustomLightningCLI(LightningCLI):
         self.base_dir = base_dir
 
         setup_logging_and_save_config(config, base_dir, logs_dir, checkpoints_dir)
+
+        logger.info("config log:-")
+        logger.info(self.config)
+
         logger.info("Training data and logs will be stored in: %s", base_dir)
 
     def set_seed(self, config: Namespace):
@@ -179,8 +187,8 @@ class CustomLightningCLI(LightningCLI):
     def extract_experiment_values(
         self,
         config: Namespace,
-        keys_to_find: List[str],
-    ) -> Dict[str, Any]:
+        keys_to_find: list[str],
+    ) -> dict[str, Any]:
         """Retrieves specific values from the given configuration based on provided keys.
 
         Args:

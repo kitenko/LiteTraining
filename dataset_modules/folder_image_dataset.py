@@ -1,6 +1,5 @@
 # pylint: disable=R1705
-"""
-This module provides the `FolderImageDataset` class, which is designed for loading, processing,
+"""This module provides the `FolderImageDataset` class, which is designed for loading, processing,
 caching, and splitting image datasets into training, validation, test, and prediction-only datasets.
 
 Key functionalities include:
@@ -16,21 +15,20 @@ import logging
 import os
 from collections import Counter
 from enum import Enum
-from typing import List, Optional, Tuple
 
 from datasets import Dataset, load_dataset
 from sklearn.model_selection import StratifiedShuffleSplit
 
-from dataset_modules.base_dataset import DatasetSplit, ImageDatasetBase
+from dataset_modules.base_dataset import DatasetBase, DatasetSplit
 from dataset_modules.utils import ensure_cache_loaded
+from toolkit.clearml_dataset import DatasetConfig, load_config
+from toolkit.clearml_utils import is_task_running_locally
 
 logger = logging.getLogger(__name__)
 
 
 class DatasetSection(Enum):
-    """
-    Enum representing different sections of the dataset (train/val, test, and predict).
-    """
+    """Enum representing different sections of the dataset (train/val, test, and predict)."""
 
     TRAIN_VAL = "train_val"
     TEST = "test"
@@ -38,9 +36,8 @@ class DatasetSection(Enum):
 
 
 # pylint: disable=too-many-instance-attributes
-class FolderImageDataset(ImageDatasetBase):
-    """
-    Class for loading, processing, caching, and splitting image datasets into training, validation, test sets, and
+class FolderImageDataset(DatasetBase):
+    """Class for loading, processing, caching, and splitting image datasets into training, validation, test sets, and
     prediction-only datasets.
 
     Attributes:
@@ -49,32 +46,43 @@ class FolderImageDataset(ImageDatasetBase):
         prediction_dir (Optional[str]): Directory containing images for prediction only, without labels.
         validation_split (float): Fraction of training data to use for validation.
         cache_dir (str): Directory for storing cached datasets and checksums.
+
     """
 
     def __init__(
         self,
         train_val_dir: str,
-        test_dir: Optional[str] = None,
-        prediction_dir: Optional[str] = None,
+        test_dir: str | None = None,
+        prediction_dir: str | None = None,
         validation_split: float = 0.1,
         cache_dir: str = "./data/cache",
+        clearml_dataset_id: str | None = None,
     ):
-        """
-        Initializes the dataset with the specified directories and split configuration.
+        """Initializes the dataset with the specified directories and configuration.
+
+        This class manages dataset loading, caching, and processing for training, validation, testing,
+        and prediction. If a ClearML dataset ID is provided, the dataset will be downloaded and used
+        as the primary data source.
 
         Args:
-            train_val_dir (str): Directory path for training and validation images.
-            test_dir (Optional[str]): Directory path for test images, if available.
-            prediction_dir (Optional[str]): Directory path for prediction-only images.
-            validation_split (float): Fraction of training data used for validation.
-            cache_dir (str): Directory path for caching datasets and checksums.
-        """
-        super().__init__(cache_dir)
+        train_val_dir (str):
+            Path to the directory containing training and validation images.
+        test_dir (Optional[str]):
+            Path to the directory containing test images, if available. Defaults to None.
+        prediction_dir (Optional[str]):
+            Path to the directory containing images used for inference (without labels). Defaults to None.
+        validation_split (float):
+            Fraction of training data that should be reserved for validation (e.g., 0.1 for 10% validation).
+        cache_dir (str):
+            Directory path for storing cached datasets and intermediate processing files. Defaults to "./data/cache".
+        clearml_dataset_id (Optional[str]):
+            ID of an existing dataset in ClearML. If provided, the dataset will be downloaded and used. Defaults to
+            None.
 
-        logger.info(
-            f"Initializing FolderImageDataset with parameters: train_val_dir={train_val_dir}, "
-            f"test_dir={test_dir}, prediction_dir={prediction_dir}, validation_split={validation_split}, "
-            f"cache_dir={cache_dir}"
+        """
+        super().__init__(
+            cache_dir=cache_dir,
+            clearml_dataset_id=clearml_dataset_id,
         )
 
         self.train_val_dir = train_val_dir
@@ -83,26 +91,71 @@ class FolderImageDataset(ImageDatasetBase):
         self.validation_split = validation_split
 
         # Initialize checksum attributes for cached data
-        self.cached_train_checksum: Optional[str] = None
-        self.cached_val_checksum: Optional[str] = None
-        self.cached_test_checksum: Optional[str] = None
-        self.cached_predict_checksum: Optional[str] = None
+        self.cached_train_checksum: str | None = None
+        self.cached_val_checksum: str | None = None
+        self.cached_test_checksum: str | None = None
+        self.cached_predict_checksum: str | None = None
 
-        self.class_labels: List[str] = []
+        self.class_labels: list[str] = []
 
         # Initialize dataset attributes
-        self.train_dataset: Optional[Dataset] = None
-        self.val_dataset: Optional[Dataset] = None
-        self.test_dataset: Optional[Dataset] = None
-        self.prediction_dataset: Optional[Dataset] = None
+        self.train_dataset: Dataset | None = None
+        self.val_dataset: Dataset | None = None
+        self.test_dataset: Dataset | None = None
+        self.prediction_dataset: Dataset | None = None
+
+        clearml_config: DatasetConfig = load_config()
+
+        if clearml_dataset_id:
+            self.set_up_new_data_dir_clearml(clearml_dataset_id, clearml_config)
+        elif is_task_running_locally():
+            self.auto_update_clearml_data(clearml_config=clearml_config)
+
+        logger.info(
+            f"Initializing FolderImageDataset with parameters: train_val_dir={self.train_val_dir}, "
+            f"test_dir={self.test_dir}, prediction_dir={self.prediction_dir}, validation_split={self.validation_split},"
+            f" cache_dir={cache_dir}",
+        )
+
+    def set_up_new_data_dir_clearml(self, clearml_dataset_id: str, clearml_config: DatasetConfig) -> None:
+        """Sets up dataset directories using a ClearML dataset.
+
+        Args:
+            clearml_dataset_id (str): The ClearML dataset ID to download.
+            clearml_config (DatasetConfig): ClearML dataset configuration.
+
+        """
+        dataset_path = self.load_data_from_clearml(clearml_dataset_id, config=clearml_config)
+
+        self.train_val_dir = os.path.join(dataset_path, self.get_base_name(self.train_val_dir))
+
+        if self.test_dir:
+            self.test_dir = os.path.join(dataset_path, self.get_base_name(self.test_dir))
+
+        if self.prediction_dir:
+            self.prediction_dir = os.path.join(dataset_path, self.get_base_name(self.prediction_dir))
+
+        logger.info(f"✅ Dataset directories set up from ClearML dataset {clearml_dataset_id}.")
+
+    def auto_update_clearml_data(self, clearml_config: DatasetConfig) -> None:
+        """Automatically updates dataset in ClearML if auto-sync is enabled.
+
+        Args:
+            clearml_config (DatasetConfig): The dataset configuration.
+
+        """
+        if not clearml_config.sync_data:
+            return
+
+        self.update_clearml_data(clearml_config)
 
     def load_data(self, regenerate: bool = False) -> None:
-        """
-        Loads the training, validation, test, and prediction data, using cached datasets if available.
+        """Loads the training, validation, test, and prediction data, using cached datasets if available.
         Forces dataset creation if `create_dataset` is set to True.
 
         Args:
             regenerate (bool): If True, forces re-creation of the dataset from source files.
+
         """
         train_val_data, self.cached_train_checksum, self.cached_val_checksum = self._load_and_cache_split(
             DatasetSection.TRAIN_VAL,
@@ -122,7 +175,8 @@ class FolderImageDataset(ImageDatasetBase):
 
         if self.prediction_dir:
             self.prediction_dataset, self.cached_predict_checksum = self._load_prediction_data(
-                self.prediction_dir, create_dataset=regenerate
+                self.prediction_dir,
+                create_dataset=regenerate,
             )
 
         if not self.class_labels:
@@ -132,11 +186,10 @@ class FolderImageDataset(ImageDatasetBase):
         self,
         section: DatasetSection,
         data_dir: str,
-        split_ratio: Optional[float] = None,
+        split_ratio: float | None = None,
         create_dataset: bool = False,
-    ) -> Tuple:
-        """
-        Loads and caches the specified dataset section (train/val or test),
+    ) -> tuple:
+        """Loads and caches the specified dataset section (train/val or test),
         performing stratified splitting if specified, and validating against cached checksums.
 
         Args:
@@ -148,6 +201,7 @@ class FolderImageDataset(ImageDatasetBase):
         Returns:
             Tuple: Either (train_dataset, val_dataset) with checksums for TRAIN_VAL or (test_dataset, checksum) for
             TEST.
+
         """
         section_name = section.value
         logger.info(f"Computing checksum for {section_name} directory: {data_dir}")
@@ -173,23 +227,20 @@ class FolderImageDataset(ImageDatasetBase):
                 )
                 self.save_checksum(checksum_key, checksum)
                 return (train_dataset, val_dataset), checksum, checksum
-            else:
-                cache_file_path = os.path.join(self.cache_dir, f"{section_name}.arrow")
-                self.save_to_cache(dataset, cache_file_path)
-                self.save_checksum(checksum_key, checksum)
-                return dataset, checksum
+            cache_file_path = os.path.join(self.cache_dir, f"{section_name}.arrow")
+            self.save_to_cache(dataset, cache_file_path)
+            self.save_checksum(checksum_key, checksum)
+            return dataset, checksum
 
         logger.info(f"No changes detected in {section_name} data. Loading from cache.")
         if section == DatasetSection.TRAIN_VAL:
             train_dataset = self.load_from_cache(os.path.join(self.cache_dir, f"{section_name}_train.arrow"))
             val_dataset = self.load_from_cache(os.path.join(self.cache_dir, f"{section_name}_val.arrow"))
             return (train_dataset, val_dataset), cached_checksum, cached_checksum
-        else:
-            return self.load_from_cache(f"{section_name}.arrow"), cached_checksum
+        return self.load_from_cache(f"{section_name}.arrow"), cached_checksum
 
-    def _load_prediction_data(self, data_dir: str, create_dataset: bool = False) -> Tuple[Dataset, str]:
-        """
-        Loads and caches the prediction dataset without labels.
+    def _load_prediction_data(self, data_dir: str, create_dataset: bool = False) -> tuple[Dataset, str]:
+        """Loads and caches the prediction dataset without labels.
 
         Args:
             data_dir (str): Path to the directory containing images for prediction.
@@ -197,6 +248,7 @@ class FolderImageDataset(ImageDatasetBase):
 
         Returns:
             Tuple[Dataset, str]: Loaded prediction dataset and checksum.
+
         """
         section_name = DatasetSection.PREDICT.value
         logger.info(f"Computing checksum for {section_name} directory: {data_dir}")
@@ -221,8 +273,7 @@ class FolderImageDataset(ImageDatasetBase):
         )
 
     def _initialize_class_labels(self):
-        """
-        Initializes class labels based on the 'label' column in the dataset features.
+        """Initializes class labels based on the 'label' column in the dataset features.
         This method extracts unique labels from the ClassLabel feature and stores them as `class_labels`.
         """
         if "label" not in self.train_dataset.features:
@@ -236,9 +287,8 @@ class FolderImageDataset(ImageDatasetBase):
         else:
             logger.warning("The 'label' feature does not have names. Ensure the dataset is correctly formatted.")
 
-    def _stratified_split(self, dataset: Dataset, split_ratio: float) -> Tuple[Dataset, Dataset]:
-        """
-        Splits the dataset into stratified training and validation sets based on class labels.
+    def _stratified_split(self, dataset: Dataset, split_ratio: float) -> tuple[Dataset, Dataset]:
+        """Splits the dataset into stratified training and validation sets based on class labels.
 
         Args:
             dataset (Dataset): The full dataset to split.
@@ -246,6 +296,7 @@ class FolderImageDataset(ImageDatasetBase):
 
         Returns:
             Tuple[Dataset, Dataset]: Stratified training and validation datasets.
+
         """
         # Конвертируем для получения меток, но не изменяем сам `Dataset`
         df = dataset.to_pandas()
@@ -266,14 +317,14 @@ class FolderImageDataset(ImageDatasetBase):
         return train_dataset, val_dataset
 
     def get_data(self, data_type: str) -> Dataset:
-        """
-        Retrieves the specified dataset (train, val, or test).
+        """Retrieves the specified dataset (train, val, or test).
 
         Args:
             data_type (str): The type of data to retrieve ("train", "val", or "test").
 
         Returns:
             Dataset: The requested dataset.
+
         """
         if data_type == DatasetSplit.TRAIN.value:
             return self.train_dataset
@@ -290,41 +341,41 @@ class FolderImageDataset(ImageDatasetBase):
 
     @ensure_cache_loaded
     def get_prediction_data(self) -> Dataset:
-        """
-        Retrieves the dataset for prediction.
+        """Retrieves the dataset for prediction.
 
         Returns:
             Dataset: The prediction dataset.
+
         """
         if not hasattr(self, "prediction_dataset"):
             raise ValueError("Prediction dataset is not available.")
         return self.prediction_dataset
 
     @ensure_cache_loaded
-    def get_train_data(self) -> Tuple[Dataset, Optional[str]]:
+    def get_train_data(self) -> tuple[Dataset, str | None]:
         """Fetches the training dataset and its checksum, loading from cache if available."""
         logger.info("Fetching training data...")
         return self.train_dataset, self.cached_train_checksum
 
     @ensure_cache_loaded
-    def get_validation_data(self) -> Tuple[Dataset, Optional[str]]:
+    def get_validation_data(self) -> tuple[Dataset, str | None]:
         """Fetches the validation dataset and its checksum, loading from cache if available."""
         logger.info("Fetching validation data...")
         return self.val_dataset, self.cached_val_checksum
 
     @ensure_cache_loaded
-    def get_test_data(self) -> Tuple[Dataset, Optional[str]]:
+    def get_test_data(self) -> tuple[Dataset, str | None]:
         """Fetches the test dataset and its checksum, loading from cache if available."""
         logger.info("Fetching test data...")
         return self.test_dataset, self.cached_test_checksum
 
     def log_class_distribution(self, dataset: Dataset, dataset_name: str) -> None:
-        """
-        Logs the class distribution in the specified dataset.
+        """Logs the class distribution in the specified dataset.
 
         Args:
             dataset (Dataset): Dataset for class distribution logging.
             dataset_name (str): Name of the dataset (e.g., "Train", "Validation").
+
         """
         if "label" not in dataset.features:
             logger.warning(f"The dataset {dataset_name} does not contain a 'label' column.")

@@ -168,8 +168,21 @@ class RandomBrightnessContrast(AlbumentationsRandomBrightnessContrast):
 class GaussNoise(AlbumentationsGaussNoise):
     """Adds random Gaussian noise to the image."""
 
-    def __init__(self, std_range: Tuple[float, float] = (10.0, 50.0), p: float = 0.5) -> None:
-        super().__init__(std_range=std_range, p=p)
+    def __init__(
+        self,
+        std_range: Tuple[float, float] = (0.2, 0.44),
+        mean_range: Tuple[float, float] = (0.0, 0.0),
+        per_channel: bool = True,
+        noise_scale_factor: float = 1.0,
+        p: float = 0.5,
+    ) -> None:
+        super().__init__(
+            std_range=std_range,
+            mean_range=mean_range,
+            per_channel=per_channel,
+            noise_scale_factor=noise_scale_factor,
+            p=p,
+        )
 
 
 class GaussianBlur(AlbumentationsGaussianBlur):

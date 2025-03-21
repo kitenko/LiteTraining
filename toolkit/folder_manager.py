@@ -1,5 +1,4 @@
-"""
-This module provides utilities for managing directories and paths in training workflows.
+"""This module provides utilities for managing directories and paths in training workflows.
 
 Features:
 - Directory creation and management.
@@ -14,11 +13,11 @@ import re
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, NamedTuple, Optional, Set, Union
+from typing import Any, NamedTuple
 
 import yaml
 from jsonargparse import Namespace
-from pytorch_lightning.loggers import TensorBoardLogger
+from lightning.pytorch.loggers import TensorBoardLogger
 
 from toolkit.logging_utils import setup_logging
 
@@ -27,12 +26,12 @@ logger = logging.getLogger(__name__)
 
 
 class DirectoryPaths(Enum):
-    """
-    Enum for defining standard directory paths used in the project.
+    """Enum for defining standard directory paths used in the project.
 
     Attributes:
         BASE_DIR: The base directory for the project, typically the current working directory.
         TRAINING_DATA: Directory for storing training-related data.
+
     """
 
     BASE_DIR = Path(os.getcwd())
@@ -40,12 +39,12 @@ class DirectoryPaths(Enum):
 
 
 class Subdirectory(Enum):
-    """
-    Enum for defining subdirectories used in the project.
+    """Enum for defining subdirectories used in the project.
 
     Attributes:
         CHECKPOINTS: Subdirectory for model checkpoints.
         LOGS: Subdirectory for logs.
+
     """
 
     CHECKPOINTS = "checkpoints"
@@ -58,8 +57,7 @@ class Subdirectory(Enum):
 
 
 class DirectoryStructure(NamedTuple):
-    """
-    Represents the directory structure used in training workflows.
+    """Represents the directory structure used in training workflows.
 
     Attributes:
         base_dir (Path): The base directory where all experiment-related files are stored.
@@ -67,16 +65,16 @@ class DirectoryStructure(NamedTuple):
                                           This may be None if checkpoints are not used.
         logs_dir (Optional[Path]): The directory for storing log files.
                                    This may be None if logging is not configured.
+
     """
 
     base_dir: Path
-    checkpoints_dir: Optional[Path]
-    logs_dir: Optional[Path]
+    checkpoints_dir: Path | None
+    logs_dir: Path | None
 
 
-def find_keys_recursive(config: Namespace, keys_to_find: List[str]) -> Dict[str, Any]:
-    """
-    Recursively searches for the values of multiple keys in a Namespace configuration.
+def find_keys_recursive(config: Namespace, keys_to_find: list[str]) -> dict[str, Any]:
+    """Recursively searches for the values of multiple keys in a Namespace configuration.
 
     Args:
         config (Namespace): The configuration object where the keys need to be searched.
@@ -87,10 +85,11 @@ def find_keys_recursive(config: Namespace, keys_to_find: List[str]) -> Dict[str,
 
     Raises:
         KeyError: If any of the specified keys are not found in the configuration.
+
     """
-    found_values: Dict[str, Any] = {}
-    keys_remaining: Set[str] = set(keys_to_find)
-    visited: Set[int] = set()
+    found_values: dict[str, Any] = {}
+    keys_remaining: set[str] = set(keys_to_find)
+    visited: set[int] = set()
 
     def recursive_search(cfg: Any):
         cfg_id = id(cfg)
@@ -130,9 +129,8 @@ def find_keys_recursive(config: Namespace, keys_to_find: List[str]) -> Dict[str,
     return found_values
 
 
-def generate_folder_name(found_values: Dict[str, Any], custom_folder_name: Optional[str]) -> str:
-    """
-    Generates a folder name based on provided key-value pairs or a custom folder name.
+def generate_folder_name(found_values: dict[str, Any], custom_folder_name: str | None) -> str:
+    """Generates a folder name based on provided key-value pairs or a custom folder name.
 
     Args:
         found_values (Dict[str, Any]): A dictionary containing key-value pairs to be used in the folder name.
@@ -140,6 +138,7 @@ def generate_folder_name(found_values: Dict[str, Any], custom_folder_name: Optio
 
     Returns:
         str: The generated or sanitized folder name.
+
     """
     if custom_folder_name:
         return custom_folder_name
@@ -150,10 +149,10 @@ def generate_folder_name(found_values: Dict[str, Any], custom_folder_name: Optio
 
 
 def create_directory_structure(
-    base_dir: Path, subdirectories: Optional[list[Subdirectory]] = None
+    base_dir: Path,
+    subdirectories: list[Subdirectory] | None = None,
 ) -> DirectoryStructure:
-    """
-    Creates a base directory and optional subdirectories.
+    """Creates a base directory and optional subdirectories.
 
     Args:
         base_dir (Path): The main directory to create.
@@ -161,6 +160,7 @@ def create_directory_structure(
 
     Returns:
         DirectoryStructure: Struct containing paths to the base directory and subdirectories.
+
     """
     base_dir.mkdir(parents=True, exist_ok=True)
     checkpoints_dir = logs_dir = None
@@ -177,9 +177,8 @@ def create_directory_structure(
     return DirectoryStructure(base_dir=base_dir, checkpoints_dir=checkpoints_dir, logs_dir=logs_dir)
 
 
-def setup_directories(config: Namespace, found_values: Dict[str, Any]) -> DirectoryStructure:
-    """
-    Sets up directories for training, including base, checkpoints, and logs.
+def setup_directories(config: Namespace, found_values: dict[str, Any]) -> DirectoryStructure:
+    """Sets up directories for training, including base, checkpoints, and logs.
 
     Args:
         config (Namespace): Configuration object with experiment settings.
@@ -187,6 +186,7 @@ def setup_directories(config: Namespace, found_values: Dict[str, Any]) -> Direct
 
     Returns:
         DirectoryStructure: Struct containing paths for base, checkpoints, and logs directories.
+
     """
     # Generate folder name
     custom_folder_name = config.experiment.get("custom_folder_name", None)
@@ -216,8 +216,7 @@ def setup_directories(config: Namespace, found_values: Dict[str, Any]) -> Direct
 
 
 def setup_directories_optuna(base_dir: Path, number_trial: int) -> DirectoryStructure:
-    """
-    Sets up directories for an Optuna trial.
+    """Sets up directories for an Optuna trial.
 
     Args:
         base_dir (Path): Base directory for Optuna experiments.
@@ -225,41 +224,41 @@ def setup_directories_optuna(base_dir: Path, number_trial: int) -> DirectoryStru
 
     Returns:
         DirectoryStructure: Struct containing paths for the trial's base, checkpoints, and logs directories.
+
     """
     trial_dir = base_dir / f"trial_{number_trial}"
     return create_directory_structure(trial_dir, [Subdirectory.CHECKPOINTS, Subdirectory.LOGS])
 
 
 def get_relative_path(*sub_dirs: str) -> Path:
-    """
-    Constructs a relative path by joining the base directory with the provided subdirectories.
+    """Constructs a relative path by joining the base directory with the provided subdirectories.
 
     Args:
         *sub_dirs (str): One or more subdirectory names to append to the base directory.
 
     Returns:
         Path: A `Path` object representing the constructed relative path.
+
     """
     return DirectoryPaths.BASE_DIR.value.joinpath(*sub_dirs)
 
 
 def sanitize_folder_name(name: str) -> str:
-    """
-    Sanitizes a folder name by replacing invalid characters with underscores.
+    """Sanitizes a folder name by replacing invalid characters with underscores.
 
     Args:
         name (str): The original folder name that may contain invalid characters.
 
     Returns:
         str: The sanitized folder name with invalid characters replaced by underscores.
+
     """
     sanitized_name = re.sub(r'[\/:*?"<>|\\]', "_", name)
     return sanitized_name
 
 
-def update_checkpoint_saver_dirpath(callbacks: list[Any], new_dirpath: Union[str, Path]) -> None:
-    """
-    Updates the 'dirpath' attribute for the PeriodicCheckpointSaver callback in the provided callbacks list.
+def update_checkpoint_saver_dirpath(callbacks: list[Any], new_dirpath: str | Path) -> None:
+    """Updates the 'dirpath' attribute for the PeriodicCheckpointSaver callback in the provided callbacks list.
 
     Args:
         callbacks (list[Any]): A list of callback objects, each containing attributes like 'class_path' and 'init_args'.
@@ -267,27 +266,28 @@ def update_checkpoint_saver_dirpath(callbacks: list[Any], new_dirpath: Union[str
 
     Returns:
         None
+
     """
     for callback in callbacks:
-        if "PeriodicCheckpointSaver" in getattr(callback, "class_path", ""):
-            if hasattr(callback, "init_args"):
-                setattr(callback.init_args, "dirpath", str(new_dirpath))
-                logger.info(f"Updated dirpath to: {new_dirpath}")
+        if "PeriodicCheckpointSaver" in getattr(callback, "class_path", "") and hasattr(callback, "init_args"):
+            if isinstance(callback.init_args, dict):
+                callback.init_args["dirpath"] = str(new_dirpath)
             else:
-                raise AttributeError(f"The callback {callback} does not have the 'init_args' attribute.")
-            break
-    else:
-        logger.info("PeriodicCheckpointSaver was not found in the callbacks list.")
+                callback.init_args.dirpath = str(new_dirpath)
+
+            logger.info(f"Updated dirpath to: {new_dirpath}")
+            return
+
+    logger.info("PeriodicCheckpointSaver was not found in the callbacks list.")
 
 
 def setup_logging_and_save_config(
     config: Namespace,
     base_dir: Path,
-    logs_dir: Optional[Path],
-    checkpoints_dir: Optional[Path],
+    logs_dir: Path | None,
+    checkpoints_dir: Path | None,
 ) -> Namespace:
-    """
-    Sets up logging, updates the checkpoint saver directory, and configures the TensorBoard logger.
+    """Sets up logging, updates the checkpoint saver directory, and configures the TensorBoard logger.
 
     Args:
         config (Namespace): The configuration object containing training and logging parameters.
@@ -298,6 +298,7 @@ def setup_logging_and_save_config(
 
     Returns:
         Namespace: The modified configuration object.
+
     """
     if logs_dir is None or checkpoints_dir is None:
         return config
@@ -322,12 +323,12 @@ def setup_logging_and_save_config(
 
 
 def save_yaml(data: dict, file_path: Path) -> None:
-    """
-    Saves data to a YAML file.
+    """Saves data to a YAML file.
 
     Args:
         data (dict): Data to save.
         file_path (Path): Path to the YAML file.
+
     """
     file_path.parent.mkdir(parents=True, exist_ok=True)  # Ensure parent directories exist
     with file_path.open("w", encoding="utf-8") as file:
@@ -335,8 +336,7 @@ def save_yaml(data: dict, file_path: Path) -> None:
 
 
 def load_yaml(file_path: Path) -> dict:
-    """
-    Loads data from a YAML file.
+    """Loads data from a YAML file.
 
     Args:
         file_path (Path): Path to the YAML file.
@@ -346,6 +346,7 @@ def load_yaml(file_path: Path) -> dict:
 
     Raises:
         FileNotFoundError: If the file does not exist.
+
     """
     if not file_path.exists():
         raise FileNotFoundError(f"YAML file not found: {file_path}")

@@ -19,7 +19,7 @@ ENV PATH="/root/.pixi/bin:$PATH"
 
 # Defining an argument for selecting an environment with the default value "default"
 ARG ENVIRONMENT=default
+ENV ENVIRONMENT=${ENVIRONMENT}
 
 # We use the passed argument to set the environment via pixi
-RUN pixi install -e $ENVIRONMENT
-
+RUN CONDA_OVERRIDE_CUDA=12.4 pixi install -e $ENVIRONMENT

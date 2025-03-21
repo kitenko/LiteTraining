@@ -2,7 +2,7 @@
 name = "app"
 requires-python = "== 3.11"
 version = "0.1.0"
-dependencies = ["cylimiter==0.4.2", "jsonargparse[signatures]", "tensorboard==2.19.0"]
+dependencies = ["cylimiter==0.4.2", "jsonargparse[signatures]==4.37.0", "tensorboard==2.19.0"]
 
 [build-system]
 build-backend = "hatchling.build"
@@ -20,7 +20,7 @@ app = { path = ".", editable = true }
 
 
 [tool.pixi.tasks]
-black = "black . --verbose"
+black = "black ."
 pylint = "pylint ."
 mypy = "mypy ."
 isort = "isort ."
@@ -32,11 +32,12 @@ default = { features = ["gpu"], solve-group = "default" }
 cpu = { features = ["cpu"], solve-group = "cpu" }
 dev = { features = ["dev", "cpu"], solve-group = "cpu" }
 dev-gpu = { features = ["dev", "gpu"], solve-group = "default" }
+clearml = { features = ["clearml"], solve-group = "clearml", no-default-feature = true}
 
 [tool.pixi.dependencies]
 torchvision = "==0.20.1"
 torchaudio = "==2.5.1"
-pytorch-lightning = "==2.5.0"
+lightning = "==2.4.0"
 optuna = "==4.2.0"
 datasets = "==3.2.0"
 transformers = "==4.48.3"
@@ -45,6 +46,8 @@ albumentations = "==2.0.4"
 scikit-learn = "==1.6.1"
 seaborn = "==0.13.2"
 numba = "==0.61.0"
+clearml = ">=1.17.1,<2"
+ipykernel = ">=6.29.5,<7"
 
 [tool.pixi.feature.gpu.dependencies]
 pytorch-gpu = "==2.5.1"
@@ -59,6 +62,11 @@ mypy = "==1.15.0"
 types-pyyaml = "==6.0.12.20241230"
 pytest-mock = "==3.14.0"
 isort = "==6.0.0"
+
+[tool.pixi.feature.clearml.dependencies]
+python = "==3.11"
+clearml-agent = "==1.9.0"
+setuptools = "==75.8.0"
 
 [tool.pixi.feature.dev.pypi-dependencies]
 black = {version = ">=25.1.0,<26", extras = ["jupyter"]}

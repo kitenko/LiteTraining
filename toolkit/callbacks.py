@@ -1,5 +1,4 @@
-"""
-This module contains custom PyTorch Lightning callbacks, including:
+"""This module contains custom PyTorch Lightning callbacks, including:
 
 1. `PeriodicCheckpointSaver`: A callback for periodically saving model checkpoints
    with additional functionality for saving models every N epochs.
@@ -13,8 +12,8 @@ import logging
 import os
 from typing import Any, Dict, Optional
 
-import pytorch_lightning as pl
-from pytorch_lightning.callbacks import Callback, ModelCheckpoint
+import lightning as pl
+from lightning.pytorch.callbacks import Callback, ModelCheckpoint
 from torch import Tensor
 from torchmetrics import Metric
 
@@ -24,8 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class PeriodicCheckpointSaver(ModelCheckpoint):
-    """
-    Custom callback for periodically saving model checkpoints with additional
+    """Custom callback for periodically saving model checkpoints with additional
     functionality to save the best models based on a monitored metric.
 
     Args:
@@ -33,6 +31,7 @@ class PeriodicCheckpointSaver(ModelCheckpoint):
                                  (e.g., every N epochs). Default is "checkpoint_epoch".
         kwargs: Additional parameters for configuring the ModelCheckpoint behavior,
                 including `dirpath`, `monitor`, and `every_n_epochs`.
+
     """
 
     def __init__(
@@ -40,12 +39,13 @@ class PeriodicCheckpointSaver(ModelCheckpoint):
         checkpoint_prefix: str = "checkpoint_epoch",
         **kwargs,
     ):
-        """
-        Initializes the PeriodicCheckpointSaver.
+        """Initializes the PeriodicCheckpointSaver.
 
-        Parameters:
+        Parameters
+        ----------
             checkpoint_prefix (str): Prefix for checkpoint filenames saved periodically.
             kwargs (dict): Additional parameters passed to the base ModelCheckpoint class.
+
         """
         super().__init__(**kwargs)
         self.checkpoint_prefix = checkpoint_prefix
@@ -53,7 +53,6 @@ class PeriodicCheckpointSaver(ModelCheckpoint):
 
     def on_validation_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
         """Handles model saving logic after each validation epoch."""
-
         # Skip saving if it's the first epoch
         if trainer.current_epoch == 0:
             return
@@ -68,7 +67,6 @@ class PeriodicCheckpointSaver(ModelCheckpoint):
 
     def _save_periodic_checkpoint(self, trainer: pl.Trainer) -> None:
         """Saves the model checkpoint periodically based on the specified interval."""
-
         if not isinstance(self.dirpath, str) or not self.dirpath:
             raise ValueError("The directory path (dirpath) must be a non-empty string.")
 
@@ -83,7 +81,6 @@ class PeriodicCheckpointSaver(ModelCheckpoint):
 
     def _check_and_save_best(self, trainer: pl.Trainer) -> None:
         """Evaluates and saves the best model based on the monitored metric."""
-
         if self.monitor is None:
             if self.verbose:
                 self.logger.warning("No monitor metric specified; skipping best model save.")
@@ -101,20 +98,19 @@ class PeriodicCheckpointSaver(ModelCheckpoint):
 
 
 class MetricsLoggerCallback(Callback):
-    """
-    Callback for logging metrics during training, validation, and testing phases.
+    """Callback for logging metrics during training, validation, and testing phases.
 
     This class initializes separate metric modules for each phase (training, validation, testing)
     and logs computed metrics at the end of each batch or epoch.
     """
 
     def __init__(self, metrics: Dict[str, Metric]):
-        """
-        Initializes the MetricsLoggerCallback with the specified metrics.
+        """Initializes the MetricsLoggerCallback with the specified metrics.
 
         Args:
             metrics (Dict[str, Metric]): Dictionary of metrics to track, where each key is a metric name
                                          and each value is a torchmetrics.Metric instance.
+
         """
         self.metrics = metrics
         self.logger = logging.getLogger(__name__)
@@ -128,9 +124,7 @@ class MetricsLoggerCallback(Callback):
         return {name_metric: copy.deepcopy(metric) for name_metric, metric in metrics.items()}
 
     def on_fit_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
-        """
-        Initializes metrics modules for training and validation on the model's device at the start of training.
-        """
+        """Initializes metrics modules for training and validation on the model's device at the start of training."""
         device = pl_module.device
         self.train_metrics = MetricsModule(device, metrics=self._copy_metrics(self.metrics))
         self.val_metrics = MetricsModule(device, metrics=self._copy_metrics(self.metrics))
@@ -140,29 +134,25 @@ class MetricsLoggerCallback(Callback):
         )
 
     def on_validation_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
-        """
-        Initializes metrics module for testing on the model's device.
-        """
+        """Initializes metrics module for testing on the model's device."""
         device = pl_module.device
         self.val_metrics = MetricsModule(device, metrics=self._copy_metrics(self.metrics))
         self.logger.info("Initialized test metric module on device %s with metrics", device)
 
     def on_test_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
-        """
-        Initializes metrics module for testing on the model's device.
-        """
+        """Initializes metrics module for testing on the model's device."""
         device = pl_module.device
         self.test_metrics = MetricsModule(device, metrics=self._copy_metrics(self.metrics))
         self.logger.info("Initialized test metric module on device %s with metrics", device)
 
     def _update_metrics(self, metrics_module: Optional[MetricsModule], outputs, phase: str) -> None:
-        """
-        Updates metrics for a given phase and logs a warning if the metrics module is None.
+        """Updates metrics for a given phase and logs a warning if the metrics module is None.
 
         Args:
             metrics_module (Optional[MetricsModule]): The metrics module to update.
             outputs (dict): Model outputs containing predictions and targets.
             phase (str): The phase name (train, validation, test) for logging.
+
         """
         if metrics_module is not None:
             metrics_module.update_metrics(outputs["preds"], outputs["targets"])
@@ -175,13 +165,13 @@ class MetricsLoggerCallback(Callback):
         phase: str,
         pl_module: pl.LightningModule,
     ) -> None:
-        """
-        Logs metrics for a given phase and logs a warning if the metrics module is None.
+        """Logs metrics for a given phase and logs a warning if the metrics module is None.
 
         Args:
             metrics_module (Optional[MetricsModule]): The metrics module to log.
             phase (str): The phase name (train, validation, test) for logging.
             pl_module (pl.LightningModule): The Lightning module for logging.
+
         """
         if metrics_module is not None:
             metrics_module.log_metrics(phase, pl_module)

@@ -8,6 +8,9 @@ services:
     volumes:
       - .:/app
     tty: true
+    network_mode: host
+    env_file:
+      - .env
     deploy:
       resources:
         reservations:
